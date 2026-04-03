@@ -25,10 +25,17 @@ interface LandingPage {
   convRate:number; lastUpdated:string; description:string;
 }
 interface Campaign {
-  id:string; title:string; product:string; objective:string; campaignType:string;
-  period:string; budget:string; stage:Stage; priority:Priority; dueDate:string;
-  responsible:TeamMember[]; tags:string[]; campaignName:string; adSetName:string;
-  adName:string; briefingFilled:boolean; briefingData?:Briefing;
+  id:string; title:string;
+  // Display fields
+  product:string; objective:string; campaignType:string; period:string;
+  budget:string; stage:Stage; priority:Priority; dueDate:string;
+  responsible:TeamMember[]; tags:string[];
+  // Nomenclatura slugs
+  productSlug?:string; objectiveSlug?:string; campaignSlug?:string;
+  canal?:string; platform?:string; publicoSlug?:string; formato?:string; quantidade?:number;
+  // Generated names
+  campaignName:string; adSetName:string; adName:string; adNames?:string[];
+  briefingFilled:boolean; briefingData?:Briefing;
   checklistState:Record<string,boolean>; comments:number; attachments:number;
   createdAt:string; landingPageId?:string;
 }
@@ -61,14 +68,79 @@ const LP_STATUS:{[k in LPStatus]:{label:string;bg:string;text:string;dot:string}
   "rascunho": {label:"Rascunho",  bg:"bg-slate-100",   text:"text-slate-500",   dot:"bg-slate-300"},
 };
 
-const PRODUCTS = ["Aceleraí","Aceleraí Pro","Mentoria Elite","Imersão Intensiva"];
-const OBJECTIVES = ["Captação de Leads","Conversão","Retenção","Reengajamento","Awareness"];
-const CAMPAIGN_TYPES = ["Black Friday","Lançamento","Evergreen","Liquidação","Novembro Negro","Oferta Relâmpago"];
-const PERIODS = ["Q1 2026","Q2 2026","Q3 2026","Q4 2026","Mai 2026","Jun 2026","Jul 2026","Ago 2026","Set 2026","Out 2026","Nov 2026"];
-const AUD_MAP:Record<string,string> = {"cl":"COLD-LOOKALIKE-1%","ci":"COLD-INTERESSE","wp":"WARM-VISITANTES","we":"WARM-ENGAJADOS-30D","hl":"HOT-LEADS","ha":"HOT-ABANDONO","rv":"RET-VIDEO-75%"};
-const AUDIENCES = [{v:"cl",l:"Cold – Lookalike 1%"},{v:"ci",l:"Cold – Interesse Amplo"},{v:"wp",l:"Warm – Visitantes Página"},{v:"we",l:"Warm – Engajados 30d"},{v:"hl",l:"Hot – Leads Não Comprados"},{v:"ha",l:"Hot – Abandono de Carrinho"},{v:"rv",l:"Retargeting – Vídeo 75%"}];
-const FMT_MAP:Record<string,string> = {"v30":"VIDEO-30S","v15":"VIDEO-15S","ca":"CARROSSEL","im":"IMAGEM-UNICA","st":"STORIES","re":"REELS"};
-const FORMATS = [{v:"v30",l:"Vídeo 30s"},{v:"v15",l:"Vídeo 15s"},{v:"ca",l:"Carrossel"},{v:"im",l:"Imagem Única"},{v:"st",l:"Stories"},{v:"re",l:"Reels"}];
+// ─── NOMENCLATURA — PADRÃO ACELERAÍ ──────────────────────────────────────────
+// Regra: tudo em minúsculas, sem acentos, separador underscore
+// Campanha: produto_objetivo_campanha_periodo
+// Conjunto: produto_objetivo_campanha_periodo_publico
+// Anúncio: produto_objetivo_campanha_periodo_conteudo_01 … _NN
+
+const PRODUCTS_LIST = [
+  {slug:"acelerai",label:"Aceleraí"},
+  {slug:"mgs",label:"MGS"},
+  {slug:"mentoria",label:"Mentoria Elite"},
+  {slug:"imersao",label:"Imersão Intensiva"},
+];
+const OBJECTIVES_LIST = [
+  {slug:"captacao",label:"Captação"},
+  {slug:"conversao",label:"Conversão"},
+  {slug:"retencao",label:"Retenção"},
+  {slug:"remarketing",label:"Remarketing"},
+  {slug:"awareness",label:"Awareness"},
+];
+const PLATFORMS = [
+  {slug:"facebook",label:"Facebook",medium_paid:"paid_social",medium_org:"organic_social"},
+  {slug:"instagram",label:"Instagram",medium_paid:"paid_social",medium_org:"organic_social"},
+  {slug:"google",label:"Google",medium_paid:"cpc",medium_org:"organic"},
+  {slug:"tiktok",label:"TikTok",medium_paid:"paid_social",medium_org:"organic_social"},
+  {slug:"youtube",label:"YouTube",medium_paid:"cpc",medium_org:"organic"},
+];
+const PERIODOS_LIST = [
+  "2026-01","2026-02","2026-03","2026-04","2026-05","2026-06",
+  "2026-07","2026-08","2026-09","2026-10","2026-11","2026-12",
+  "2026-Q1","2026-Q2","2026-Q3","2026-Q4","continua",
+];
+const PUBLICOS_LIST = [
+  {slug:"lookalike_compradores",label:"Lookalike Compradores"},
+  {slug:"lookalike_1pct",label:"Lookalike 1%"},
+  {slug:"remarketing_30d",label:"Remarketing 30d"},
+  {slug:"remarketing_engajamento",label:"Remarketing Engajamento"},
+  {slug:"interesse_amplo",label:"Interesse Amplo"},
+  {slug:"base_completa",label:"Base Completa"},
+  {slug:"leads_nao_comprados",label:"Leads Não Comprados"},
+  {slug:"link_bio",label:"Link na Bio"},
+];
+const FORMATOS_LIST = [
+  {slug:"video",label:"Vídeo"},
+  {slug:"post",label:"Post"},
+  {slug:"reels",label:"Reels"},
+  {slug:"stories",label:"Stories"},
+  {slug:"carrossel",label:"Carrossel"},
+  {slug:"email",label:"E-mail"},
+  {slug:"msg",label:"Msg/WhatsApp"},
+];
+
+function toSlug(v:string){
+  return v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_").replace(/[^\w-]/g,"").replace(/_+/g,"_");
+}
+function genNomes(productSlug:string,objectiveSlug:string,campaignSlug:string,period:string,publicoSlug:string,qty:number){
+  const base=`${productSlug}_${objectiveSlug}_${campaignSlug}_${period}`;
+  const adSetName=`${base}_${publicoSlug}`;
+  const adNames=Array.from({length:Math.max(1,qty)},(_,i)=>`${base}_conteudo_${String(i+1).padStart(2,"0")}`);
+  return{campaignName:base,adSetName,adNames};
+}
+function getUtmMedium(platform:string,canal:string){
+  const p=PLATFORMS.find(x=>x.slug===platform);
+  if(!p) return canal==="pago"?"paid_social":"organic_social";
+  return canal==="pago"?p.medium_paid:p.medium_org;
+}
+
+// Legacy compat (not used for new campaigns)
+function slugify(v:string){return v.toUpperCase().replace(/\s+/g,"-").replace(/[^\w-]/g,"");}
+function genNames(product:string,objective:string,campaignType:string,period:string,audience:string,format:string){
+  const p=slugify(product),o=slugify(objective),c=slugify(campaignType),pe=period.toUpperCase().replace(" ","-");
+  return{campaignName:`${p}_${o}_${c}_${pe}`,adSetName:`${p}_${o}_${c}_${pe}_${audience}`,adName:`${p}_${o}_${c}_${pe}_${audience}_${format}`};
+}
+
 const CHECKLIST_ITEMS = [
   {id:"c1",label:"Nome da campanha gerado e copiado"},
   {id:"c2",label:"Nome do conjunto de anúncios copiado"},
@@ -82,13 +154,6 @@ const CHECKLIST_ITEMS = [
   {id:"c10",label:"Revisão final antes de publicar"},
 ];
 
-function slugify(v:string){return v.toUpperCase().replace(/\s+/g,"-").replace(/[^\w-]/g,"");}
-function genNames(product:string,objective:string,campaignType:string,period:string,audience:string,format:string){
-  const p=slugify(product),o=slugify(objective),c=slugify(campaignType),pe=period.toUpperCase().replace(" ","-");
-  const a=AUD_MAP[audience]||slugify(audience),f=FMT_MAP[format]||slugify(format);
-  return {campaignName:`${p}_${o}_${c}_${pe}`,adSetName:`${p}_${o}_${c}_${pe}_${a}`,adName:`${p}_${o}_${c}_${pe}_${a}_${f}`};
-}
-
 const INIT_LPS:LandingPage[] = [
   {id:"lp1",name:"LP Principal – Aceleraí",url:"acelerai.com.br/lp",status:"no-ar",connectedCampaigns:["c1","c4"],visits:12840,conversions:1027,convRate:8.0,lastUpdated:"Hoje",description:"Página principal de captação para o produto Aceleraí."},
   {id:"lp2",name:"LP Mentoria Elite",url:"acelerai.com.br/mentoria",status:"no-ar",connectedCampaigns:["c2"],visits:5320,conversions:238,convRate:4.5,lastUpdated:"Ontem",description:"LP exclusiva para a Mentoria Elite — foco em conversão de leads quentes."},
@@ -98,12 +163,12 @@ const INIT_LPS:LandingPage[] = [
 ];
 
 const INIT_CAMPAIGNS:Campaign[] = [
-  {id:"c1",title:"Black Friday – Captação",product:"Aceleraí",objective:"Captação de Leads",campaignType:"Black Friday",period:"Q4 2026",budget:"R$ 12.000",stage:"no-ar",priority:"high",dueDate:"Nov 29",responsible:[TEAM.marina,TEAM.pedro],tags:["bf2026"],campaignName:"ACELERAI_CAPTACAO-DE-LEADS_BLACK-FRIDAY_Q4-2026",adSetName:"ACELERAI_CAPTACAO-DE-LEADS_BLACK-FRIDAY_Q4-2026_COLD-LOOKALIKE-1%",adName:"ACELERAI_CAPTACAO-DE-LEADS_BLACK-FRIDAY_Q4-2026_COLD-LOOKALIKE-1%_VIDEO-30S",briefingFilled:true,briefingData:{objetivo:"Captar leads qualificados com CPL abaixo de R$ 18.",publico:"Empreendedores de 28–45 anos que tentaram escalar e não conseguiram.",proposta:"Sistema completo para escalar vendas online.",tom:"Direto, empático e orientado a resultado.",referencias:"VSL Q2 (conv. 3,2%). Estrutura: problema → agitação → solução.",criativos:"3 vídeos (30s, 15s, Stories), 2 carrosséis, 4 imagens."},checklistState:{c1:true,c2:true,c3:true,c4:true,c5:true,c6:true,c7:true,c8:true,c9:true},comments:8,attachments:4,createdAt:"Hoje, 14:22",landingPageId:"lp1"},
-  {id:"c2",title:"Lançamento Mentoria Elite",product:"Mentoria Elite",objective:"Conversão",campaignType:"Lançamento",period:"Q3 2026",budget:"R$ 8.500",stage:"aprovado",priority:"high",dueDate:"Out 15",responsible:[TEAM.joana],tags:["lancamento"],campaignName:"MENTORIA-ELITE_CONVERSAO_LANCAMENTO_Q3-2026",adSetName:"MENTORIA-ELITE_CONVERSAO_LANCAMENTO_Q3-2026_WARM-ENGAJADOS-30D",adName:"MENTORIA-ELITE_CONVERSAO_LANCAMENTO_Q3-2026_WARM-ENGAJADOS-30D_CARROSSEL",briefingFilled:true,briefingData:{objetivo:"Converter leads quentes da lista de espera.",publico:"Leads que assistiram ao webinar e não compraram nos últimos 90 dias.",proposta:"Mentoria 1:1 com especialistas que escalaram R$ 10M+.",tom:"Exclusivo, urgente, resultado comprovado.",referencias:"Email de abertura gerou 42% de abertura. Usar prova social.",criativos:"2 depoimentos em vídeo, 3 imagens com screenshot de resultados."},checklistState:{c1:true,c2:true,c3:true,c4:true,c5:true,c6:true,c7:true,c8:true,c9:true,c10:true},comments:12,attachments:7,createdAt:"Ontem, 10:05",landingPageId:"lp2"},
-  {id:"c3",title:"Evergreen Pro – Conversão",product:"Aceleraí Pro",objective:"Conversão",campaignType:"Evergreen",period:"Q2 2026",budget:"R$ 5.000",stage:"revisao",priority:"medium",dueDate:"Set 30",responsible:[TEAM.thiago,TEAM.marina],tags:["evergreen"],campaignName:"ACELERAI-PRO_CONVERSAO_EVERGREEN_Q2-2026",adSetName:"ACELERAI-PRO_CONVERSAO_EVERGREEN_Q2-2026_HOT-LEADS",adName:"ACELERAI-PRO_CONVERSAO_EVERGREEN_Q2-2026_HOT-LEADS_VIDEO-15S",briefingFilled:true,briefingData:{objetivo:"Converter leads mornos da base via retargeting contínuo.",publico:"Leads que baixaram material gratuito mas não compraram.",proposta:"Módulo avançado para quem já tem resultado.",tom:"Consultivo, especialista, sem hype.",referencias:"Anúncio 'Você já tem os leads' — CTR 4.2%.",criativos:"1 vídeo 15s, 2 imagens, 1 carrossel de prova social."},checklistState:{c1:true,c2:true,c3:true,c4:true,c5:true,c6:true},comments:5,attachments:2,createdAt:"2 dias atrás",landingPageId:"lp3"},
-  {id:"c4",title:"Reengajamento Novembro",product:"Aceleraí",objective:"Reengajamento",campaignType:"Novembro Negro",period:"Q4 2026",budget:"R$ 3.200",stage:"criacao",priority:"medium",dueDate:"Nov 10",responsible:[TEAM.pedro],tags:["reengajamento"],campaignName:"ACELERAI_REENGAJAMENTO_NOVEMBRO-NEGRO_Q4-2026",adSetName:"ACELERAI_REENGAJAMENTO_NOVEMBRO-NEGRO_Q4-2026_HOT-ABANDONO",adName:"ACELERAI_REENGAJAMENTO_NOVEMBRO-NEGRO_Q4-2026_HOT-ABANDONO_STORIES",briefingFilled:true,briefingData:{objetivo:"Reativar base de leads inativos há mais de 60 dias.",publico:"Leads que pararam de abrir emails.",proposta:"Oferta exclusiva com 30% de desconto.",tom:"Pessoal, direto, senso de urgência real.",referencias:"Nada aprovado ainda.",criativos:"3 Stories, 2 imagens de oferta."},checklistState:{},comments:3,attachments:1,createdAt:"3 dias atrás",landingPageId:"lp1"},
-  {id:"c5",title:"Oferta Relâmpago Imersão",product:"Imersão Intensiva",objective:"Conversão",campaignType:"Oferta Relâmpago",period:"Q3 2026",budget:"R$ 2.000",stage:"briefing",priority:"low",dueDate:"Set 20",responsible:[TEAM.joana,TEAM.thiago],tags:["oferta"],campaignName:"",adSetName:"",adName:"",briefingFilled:false,checklistState:{},comments:1,attachments:0,createdAt:"4 dias atrás",landingPageId:"lp5"},
-  {id:"c6",title:"Awareness Aceleraí Q3",product:"Aceleraí",objective:"Awareness",campaignType:"Evergreen",period:"Q3 2026",budget:"R$ 4.000",stage:"pausado",priority:"low",dueDate:"Ago 31",responsible:[TEAM.marina],tags:["awareness"],campaignName:"ACELERAI_AWARENESS_EVERGREEN_Q3-2026",adSetName:"ACELERAI_AWARENESS_EVERGREEN_Q3-2026_COLD-INTERESSE",adName:"ACELERAI_AWARENESS_EVERGREEN_Q3-2026_COLD-INTERESSE_REELS",briefingFilled:true,briefingData:{objetivo:"Aumentar reconhecimento de marca.",publico:"Empreendedores 25–50 anos interessados em marketing digital.",proposta:"A plataforma que organiza o caos do marketing digital.",tom:"Educativo, inspirador.",referencias:"Conteúdo orgânico de maior alcance.",criativos:"Série de Reels educativos."},checklistState:{c1:true,c2:true,c3:true,c4:true,c5:true,c6:true,c7:true},comments:2,attachments:3,createdAt:"5 dias atrás",landingPageId:undefined},
+  {id:"c1",title:"Black Friday – Captação",product:"Aceleraí",objective:"Captação",campaignType:"black_friday",period:"2026-11",budget:"R$ 12.000",stage:"no-ar",priority:"high",dueDate:"Nov 29",responsible:[TEAM.marina,TEAM.pedro],tags:["bf2026"],productSlug:"acelerai",objectiveSlug:"captacao",campaignSlug:"black_friday",canal:"pago",platform:"facebook",publicoSlug:"lookalike_compradores",formato:"video",quantidade:8,campaignName:"acelerai_captacao_black_friday_2026-11",adSetName:"acelerai_captacao_black_friday_2026-11_lookalike_compradores",adName:"acelerai_captacao_black_friday_2026-11_conteudo_01",adNames:Array.from({length:8},(_,i)=>`acelerai_captacao_black_friday_2026-11_conteudo_${String(i+1).padStart(2,"0")}`),briefingFilled:true,briefingData:{objetivo:"Captar leads qualificados com CPL abaixo de R$ 18.",publico:"Empreendedores de 28–45 anos que tentaram escalar e não conseguiram.",proposta:"Sistema completo para escalar vendas online.",tom:"Direto, empático e orientado a resultado.",referencias:"VSL Q2 (conv. 3,2%). Estrutura: problema → agitação → solução.",criativos:"3 vídeos (30s, 15s, Stories), 2 carrosséis, 4 imagens."},checklistState:{c1:true,c2:true,c3:true,c4:true,c5:true,c6:true,c7:true,c8:true,c9:true},comments:8,attachments:4,createdAt:"Hoje, 14:22",landingPageId:"lp1"},
+  {id:"c2",title:"Lançamento Mentoria Elite",product:"Mentoria Elite",objective:"Conversão",campaignType:"lancamento",period:"2026-10",budget:"R$ 8.500",stage:"aprovado",priority:"high",dueDate:"Out 15",responsible:[TEAM.joana],tags:["lancamento"],productSlug:"mentoria",objectiveSlug:"conversao",campaignSlug:"lancamento",canal:"pago",platform:"facebook",publicoSlug:"remarketing_engajamento",formato:"carrossel",quantidade:6,campaignName:"mentoria_conversao_lancamento_2026-10",adSetName:"mentoria_conversao_lancamento_2026-10_remarketing_engajamento",adName:"mentoria_conversao_lancamento_2026-10_conteudo_01",adNames:Array.from({length:6},(_,i)=>`mentoria_conversao_lancamento_2026-10_conteudo_${String(i+1).padStart(2,"0")}`),briefingFilled:true,briefingData:{objetivo:"Converter leads quentes da lista de espera.",publico:"Leads que assistiram ao webinar e não compraram nos últimos 90 dias.",proposta:"Mentoria 1:1 com especialistas que escalaram R$ 10M+.",tom:"Exclusivo, urgente, resultado comprovado.",referencias:"Email de abertura gerou 42% de abertura. Usar prova social.",criativos:"2 depoimentos em vídeo, 3 imagens com screenshot de resultados."},checklistState:{c1:true,c2:true,c3:true,c4:true,c5:true,c6:true,c7:true,c8:true,c9:true,c10:true},comments:12,attachments:7,createdAt:"Ontem, 10:05",landingPageId:"lp2"},
+  {id:"c3",title:"Evergreen Aceleraí – Conversão",product:"Aceleraí",objective:"Conversão",campaignType:"evergreen",period:"continua",budget:"R$ 5.000",stage:"revisao",priority:"medium",dueDate:"Set 30",responsible:[TEAM.thiago,TEAM.marina],tags:["evergreen"],productSlug:"acelerai",objectiveSlug:"conversao",campaignSlug:"evergreen",canal:"pago",platform:"instagram",publicoSlug:"leads_nao_comprados",formato:"video",quantidade:4,campaignName:"acelerai_conversao_evergreen_continua",adSetName:"acelerai_conversao_evergreen_continua_leads_nao_comprados",adName:"acelerai_conversao_evergreen_continua_conteudo_01",adNames:Array.from({length:4},(_,i)=>`acelerai_conversao_evergreen_continua_conteudo_${String(i+1).padStart(2,"0")}`),briefingFilled:true,briefingData:{objetivo:"Converter leads mornos da base via retargeting contínuo.",publico:"Leads que baixaram material gratuito mas não compraram.",proposta:"Módulo avançado para quem já tem resultado.",tom:"Consultivo, especialista, sem hype.",referencias:"Anúncio 'Você já tem os leads' — CTR 4.2%.",criativos:"1 vídeo 15s, 2 imagens, 1 carrossel de prova social."},checklistState:{c1:true,c2:true,c3:true,c4:true,c5:true,c6:true},comments:5,attachments:2,createdAt:"2 dias atrás",landingPageId:"lp3"},
+  {id:"c4",title:"Remarketing Novembro",product:"Aceleraí",objective:"Remarketing",campaignType:"novembro",period:"2026-11",budget:"R$ 3.200",stage:"criacao",priority:"medium",dueDate:"Nov 10",responsible:[TEAM.pedro],tags:["remarketing"],productSlug:"acelerai",objectiveSlug:"remarketing",campaignSlug:"novembro",canal:"pago",platform:"facebook",publicoSlug:"remarketing_30d",formato:"stories",quantidade:3,campaignName:"acelerai_remarketing_novembro_2026-11",adSetName:"acelerai_remarketing_novembro_2026-11_remarketing_30d",adName:"acelerai_remarketing_novembro_2026-11_conteudo_01",adNames:Array.from({length:3},(_,i)=>`acelerai_remarketing_novembro_2026-11_conteudo_${String(i+1).padStart(2,"0")}`),briefingFilled:true,briefingData:{objetivo:"Reativar base de leads inativos há mais de 60 dias.",publico:"Leads que pararam de abrir emails.",proposta:"Oferta exclusiva com 30% de desconto.",tom:"Pessoal, direto, senso de urgência real.",referencias:"Nada aprovado ainda.",criativos:"3 Stories, 2 imagens de oferta."},checklistState:{},comments:3,attachments:1,createdAt:"3 dias atrás",landingPageId:"lp1"},
+  {id:"c5",title:"Oferta Relâmpago Imersão",product:"Imersão Intensiva",objective:"Conversão",campaignType:"oferta_relampago",period:"2026-09",budget:"R$ 2.000",stage:"briefing",priority:"low",dueDate:"Set 20",responsible:[TEAM.joana,TEAM.thiago],tags:["oferta"],campaignName:"",adSetName:"",adName:"",briefingFilled:false,checklistState:{},comments:1,attachments:0,createdAt:"4 dias atrás",landingPageId:"lp5"},
+  {id:"c6",title:"Awareness Aceleraí – Orgânico",product:"Aceleraí",objective:"Awareness",campaignType:"awareness",period:"2026-Q3",budget:"R$ 4.000",stage:"pausado",priority:"low",dueDate:"Ago 31",responsible:[TEAM.marina],tags:["awareness"],productSlug:"acelerai",objectiveSlug:"awareness",campaignSlug:"awareness",canal:"organico",platform:"instagram",publicoSlug:"link_bio",formato:"reels",quantidade:5,campaignName:"acelerai_awareness_awareness_2026-Q3",adSetName:"acelerai_awareness_awareness_2026-Q3_link_bio",adName:"acelerai_awareness_awareness_2026-Q3_conteudo_01",adNames:Array.from({length:5},(_,i)=>`acelerai_awareness_awareness_2026-Q3_conteudo_${String(i+1).padStart(2,"0")}`),briefingFilled:true,briefingData:{objetivo:"Aumentar reconhecimento de marca.",publico:"Empreendedores 25–50 anos interessados em marketing digital.",proposta:"A plataforma que organiza o caos do marketing digital.",tom:"Educativo, inspirador.",referencias:"Conteúdo orgânico de maior alcance.",criativos:"Série de Reels educativos."},checklistState:{c1:true,c2:true,c3:true,c4:true,c5:true,c6:true,c7:true},comments:2,attachments:3,createdAt:"5 dias atrás",landingPageId:undefined},
 ];
 
 const INIT_NOTIFS:Notification[] = [
@@ -179,19 +244,39 @@ function Modal({onClose,children,wide=false}:{onClose:()=>void;children:React.Re
 }
 
 // ─── NEW CAMPAIGN WIZARD ──────────────────────────────────────────────────────
-interface WD{product:string;objective:string;campaignType:string;period:string;budget:string;priority:Priority;dueDate:string;responsible:string[];briefingObjetivo:string;briefingPublico:string;briefingProposta:string;briefingTom:string;briefingRefs:string;briefingCriativos:string;audience:string;format:string;landingPageId:string;}
-const WSTEPS=["Campanha","Equipe","Briefing","LP & Nomenclatura","Revisão"];
+interface WD{
+  canal:string;platform:string;productSlug:string;objectiveSlug:string;
+  campaignSlug:string;period:string;publicoSlug:string;formato:string;quantidade:number;
+  budget:string;priority:Priority;dueDate:string;responsible:string[];landingPageId:string;
+  briefingObjetivo:string;briefingPublico:string;briefingProposta:string;briefingTom:string;briefingRefs:string;briefingCriativos:string;
+}
+const WSTEPS=["Configurar","Equipe","Briefing","LP & Nomes","Revisão"];
+
+function InpText({label,value,onChange,placeholder,mono=false}:{label:string;value:string;onChange:(v:string)=>void;placeholder?:string;mono?:boolean}){
+  return<div className="flex flex-col gap-1.5">
+    <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{label}</label>
+    <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+      className={`h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-300 ${mono?"font-mono":""}`}/>
+  </div>;
+}
 
 function NewCampaignModal({onClose,onSave,lps}:{onClose:()=>void;onSave:(c:Campaign)=>void;lps:LandingPage[]}){
   const[step,setStep]=useState(0);
-  const[d,setD]=useState<WD>({product:"",objective:"",campaignType:"",period:"",budget:"",priority:"medium",dueDate:"",responsible:[],briefingObjetivo:"",briefingPublico:"",briefingProposta:"",briefingTom:"",briefingRefs:"",briefingCriativos:"",audience:"",format:"",landingPageId:""});
-  const u=(k:keyof WD)=>(v:string)=>setD(p=>({...p,[k]:v}));
-  const n=d.product&&d.objective&&d.campaignType&&d.period&&d.audience&&d.format?genNames(d.product,d.objective,d.campaignType,d.period,d.audience,d.format):null;
-  const canNext=[d.product&&d.objective&&d.campaignType&&d.period&&d.budget,d.responsible.length>0&&d.dueDate,d.briefingObjetivo&&d.briefingPublico,true,true][step];
+  const[d,setD]=useState<WD>({canal:"pago",platform:"facebook",productSlug:"",objectiveSlug:"",campaignSlug:"",period:"",publicoSlug:"",formato:"",quantidade:4,budget:"",priority:"medium",dueDate:"",responsible:[],landingPageId:"",briefingObjetivo:"",briefingPublico:"",briefingProposta:"",briefingTom:"",briefingRefs:"",briefingCriativos:""});
+  const u=(k:keyof WD)=>(v:string|number)=>setD(p=>({...p,[k]:v}));
+  const productLabel=PRODUCTS_LIST.find(x=>x.slug===d.productSlug)?.label||"";
+  const objectiveLabel=OBJECTIVES_LIST.find(x=>x.slug===d.objectiveSlug)?.label||"";
+  const slugVal=toSlug(d.campaignSlug);
+  const canGenerate=!!(d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period&&d.publicoSlug);
+  const nomes=canGenerate?genNomes(d.productSlug,d.objectiveSlug,slugVal,d.period,d.publicoSlug,d.quantidade):null;
+  const utmMedium=getUtmMedium(d.platform,d.canal);
+  const canNext=[d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period&&d.budget&&d.platform,d.responsible.length>0&&d.dueDate,d.briefingObjetivo&&d.briefingPublico,true,true][step];
   const toggleR=(id:string)=>setD(p=>({...p,responsible:p.responsible.includes(id)?p.responsible.filter(r=>r!==id):[...p.responsible,id]}));
   const create=()=>{
-    const names=n||{campaignName:"",adSetName:"",adName:""};
-    onSave({id:`c${Date.now()}`,title:`${d.product} – ${d.campaignType}`,product:d.product,objective:d.objective,campaignType:d.campaignType,period:d.period,budget:d.budget,stage:"briefing",priority:d.priority,dueDate:d.dueDate,responsible:d.responsible.map(id=>TEAM[id]),tags:[d.product.toLowerCase().replace(/\s/g,"-")],campaignName:names.campaignName,adSetName:names.adSetName,adName:names.adName,briefingFilled:!!(d.briefingObjetivo&&d.briefingPublico),briefingData:{objetivo:d.briefingObjetivo,publico:d.briefingPublico,proposta:d.briefingProposta,tom:d.briefingTom,referencias:d.briefingRefs,criativos:d.briefingCriativos},checklistState:{},comments:0,attachments:0,createdAt:"Agora",landingPageId:d.landingPageId||undefined});
+    const names=nomes||{campaignName:"",adSetName:"",adNames:[]};
+    const prod=PRODUCTS_LIST.find(x=>x.slug===d.productSlug);
+    const obj=OBJECTIVES_LIST.find(x=>x.slug===d.objectiveSlug);
+    onSave({id:`c${Date.now()}`,title:`${prod?.label||d.productSlug} – ${d.campaignSlug}`,product:prod?.label||d.productSlug,objective:obj?.label||d.objectiveSlug,campaignType:d.campaignSlug,period:d.period,budget:d.budget,stage:"briefing",priority:d.priority,dueDate:d.dueDate,responsible:d.responsible.map(id=>TEAM[id]),tags:[d.productSlug],productSlug:d.productSlug,objectiveSlug:d.objectiveSlug,campaignSlug:slugVal,canal:d.canal,platform:d.platform,publicoSlug:d.publicoSlug,formato:d.formato,quantidade:d.quantidade,campaignName:names.campaignName,adSetName:names.adSetName,adName:names.adNames[0]||"",adNames:names.adNames,briefingFilled:!!(d.briefingObjetivo&&d.briefingPublico),briefingData:{objetivo:d.briefingObjetivo,publico:d.briefingPublico,proposta:d.briefingProposta,tom:d.briefingTom,referencias:d.briefingRefs,criativos:d.briefingCriativos},checklistState:{},comments:0,attachments:0,createdAt:"Agora",landingPageId:d.landingPageId||undefined});
     onClose();
   };
   return(
@@ -211,19 +296,62 @@ function NewCampaignModal({onClose,onSave,lps}:{onClose:()=>void;onSave:(c:Campa
         ))}
       </div>
       <div className="flex-1 overflow-y-auto p-6">
-        {step===0&&<div className="grid grid-cols-2 gap-4">
-          <Sel label="Produto" opts={PRODUCTS} value={d.product} onChange={u("product")}/>
-          <Sel label="Objetivo" opts={OBJECTIVES} value={d.objective} onChange={u("objective")}/>
-          <Sel label="Tipo de Campanha" opts={CAMPAIGN_TYPES} value={d.campaignType} onChange={u("campaignType")}/>
-          <Sel label="Período" opts={PERIODS} value={d.period} onChange={u("period")}/>
-          <div className="flex flex-col gap-1.5"><label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Budget</label><input value={d.budget} onChange={e=>u("budget")(e.target.value)} placeholder="Ex: R$ 5.000" className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-300"/></div>
-          <div className="flex flex-col gap-1.5"><label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Prazo</label><input value={d.dueDate} onChange={e=>u("dueDate")(e.target.value)} placeholder="Ex: Nov 29" className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-300"/></div>
+        {/* STEP 0 — CONFIGURAR */}
+        {step===0&&<div className="flex flex-col gap-5">
+          {/* Canal */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Canal</label>
+            <div className="flex gap-2">
+              {[{v:"pago",l:"Pago (Ads)"},{v:"organico",l:"Orgânico"}].map(c=><button key={c.v} onClick={()=>u("canal")(c.v)} className={`flex-1 flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-all ${d.canal===c.v?"border-indigo-300 bg-indigo-50 text-indigo-700":"border-slate-200 text-slate-400 hover:border-slate-300"}`}>{c.v==="pago"?<Target className="h-3.5 w-3.5"/>:<BarChart3 className="h-3.5 w-3.5"/>}{c.l}</button>)}
+            </div>
+          </div>
+          {/* Plataforma */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Plataforma — <span className="font-mono normal-case text-slate-500">utm_source: {d.platform||"—"}</span></label>
+            <div className="flex flex-wrap gap-2">
+              {PLATFORMS.map(p=><button key={p.slug} onClick={()=>u("platform")(p.slug)} className={`rounded-xl border px-4 py-2 text-sm font-medium transition-all ${d.platform===p.slug?"border-indigo-300 bg-indigo-50 text-indigo-700":"border-slate-200 text-slate-500 hover:border-slate-300"}`}>{p.label}</button>)}
+            </div>
+          </div>
+          {/* utm_medium preview */}
+          {d.platform&&<div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 flex items-center gap-2"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">utm_medium</span><span className="font-mono text-xs text-slate-600">{utmMedium}</span><span className="text-[10px] text-slate-400 ml-1">(automático)</span></div>}
+          {/* Produto + Objetivo */}
+          <div className="grid grid-cols-2 gap-4">
+            <Sel label="Produto" opts={PRODUCTS_LIST.map(x=>x.label)} value={productLabel} onChange={v=>{const f=PRODUCTS_LIST.find(x=>x.label===v);if(f)u("productSlug")(f.slug);}}/>
+            <Sel label="Objetivo" opts={OBJECTIVES_LIST.map(x=>x.label)} value={objectiveLabel} onChange={v=>{const f=OBJECTIVES_LIST.find(x=>x.label===v);if(f)u("objectiveSlug")(f.slug);}}/>
+          </div>
+          {/* Campanha (slug) + Período */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Campanha (slug)</label>
+              <input value={d.campaignSlug} onChange={e=>u("campaignSlug")(e.target.value.toLowerCase().replace(/\s+/g,"_").replace(/[^\w-]/g,""))} placeholder="ex: black_friday, hexa, evergreen" className="h-10 rounded-xl border border-slate-200 bg-white px-3 font-mono text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-300 placeholder:font-sans"/>
+              {d.campaignSlug&&<p className="text-[10px] text-slate-400 font-mono">{slugVal}</p>}
+            </div>
+            <Sel label="Período" opts={PERIODOS_LIST} value={d.period} onChange={u("period")}/>
+          </div>
+          {/* Público + Formato */}
+          <div className="grid grid-cols-2 gap-4">
+            <Sel label="Público / Audiência" opts={PUBLICOS_LIST.map(x=>x.label)} value={PUBLICOS_LIST.find(x=>x.slug===d.publicoSlug)?.label||""} onChange={v=>{const f=PUBLICOS_LIST.find(x=>x.label===v);if(f)u("publicoSlug")(f.slug);}}/>
+            <Sel label="Formato" opts={FORMATOS_LIST.map(x=>x.label)} value={FORMATOS_LIST.find(x=>x.slug===d.formato)?.label||""} onChange={v=>{const f=FORMATOS_LIST.find(x=>x.label===v);if(f)u("formato")(f.slug);}}/>
+          </div>
+          {/* Quantidade */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Quantidade de conteúdos — <span className="text-indigo-600 font-bold normal-case">{d.quantidade}</span></label>
+            <input type="range" min={1} max={20} value={d.quantidade} onChange={e=>u("quantidade")(Number(e.target.value))} className="w-full accent-indigo-600"/>
+            <div className="flex justify-between text-[10px] text-slate-300"><span>1</span><span>5</span><span>10</span><span>15</span><span>20</span></div>
+          </div>
+          {/* Budget + Prazo */}
+          <div className="grid grid-cols-2 gap-4">
+            <InpText label="Orçamento" value={d.budget} onChange={u("budget")} placeholder="Ex: R$ 5.000"/>
+            <InpText label="Prazo" value={d.dueDate} onChange={u("dueDate")} placeholder="Ex: Nov 29"/>
+          </div>
         </div>}
+        {/* STEP 1 — EQUIPE */}
         {step===1&&<div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2"><label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Responsáveis</label><div className="grid grid-cols-2 gap-2">{ALL_MEMBERS.map(m=><button key={m.id} onClick={()=>toggleR(m.id)} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${d.responsible.includes(m.id)?"border-indigo-300 bg-indigo-50":"border-slate-200 hover:border-slate-300"}`}><Av m={m} size="md"/><span className="text-sm text-slate-700 font-medium">{m.name}</span>{d.responsible.includes(m.id)&&<Check className="ml-auto h-4 w-4 text-indigo-600"/>}</button>)}</div></div>
           <div className="flex flex-col gap-2"><label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Prioridade</label><div className="flex gap-2">{(["high","medium","low"] as Priority[]).map(p=>{const info=p==="high"?{l:"Alta",c:"border-red-200 bg-red-50 text-red-600"}:p==="medium"?{l:"Média",c:"border-amber-200 bg-amber-50 text-amber-600"}:{l:"Baixa",c:"border-slate-200 bg-slate-50 text-slate-500"};return<button key={p} onClick={()=>setD(dd=>({...dd,priority:p}))} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition-all ${d.priority===p?info.c:"border-slate-200 text-slate-400 hover:border-slate-300"}`}><Flag className="h-3.5 w-3.5"/>{info.l}</button>;})}
           </div></div>
         </div>}
+        {/* STEP 2 — BRIEFING */}
         {step===2&&<div className="grid grid-cols-2 gap-4">
           <div className="col-span-2"><TA label="Objetivo da Campanha" value={d.briefingObjetivo} onChange={u("briefingObjetivo")} rows={2}/></div>
           <div className="col-span-2"><TA label="Público-alvo" value={d.briefingPublico} onChange={u("briefingPublico")} rows={2}/></div>
@@ -232,6 +360,7 @@ function NewCampaignModal({onClose,onSave,lps}:{onClose:()=>void;onSave:(c:Campa
           <TA label="Referências de Copy" value={d.briefingRefs} onChange={u("briefingRefs")} rows={2}/>
           <TA label="Criativos Necessários" value={d.briefingCriativos} onChange={u("briefingCriativos")} rows={2}/>
         </div>}
+        {/* STEP 3 — LP & NOMENCLATURA */}
         {step===3&&<div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2"><label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Landing Page</label>
             <div className="flex flex-col gap-2">
@@ -243,22 +372,25 @@ function NewCampaignModal({onClose,onSave,lps}:{onClose:()=>void;onSave:(c:Campa
               </button>)}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Sel label="Público" opts={AUDIENCES.map(a=>a.l)} value={AUDIENCES.find(a=>a.v===d.audience)?.l||""} onChange={v=>{const f=AUDIENCES.find(a=>a.l===v);if(f)setD(dd=>({...dd,audience:f.v}));}}/>
-            <Sel label="Formato" opts={FORMATS.map(f=>f.l)} value={FORMATS.find(f=>f.v===d.format)?.l||""} onChange={v=>{const f=FORMATS.find(ff=>ff.l===v);if(f)setD(dd=>({...dd,format:f.v}));}}/>
-          </div>
-          {n&&<div className="flex flex-col gap-3 rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
-            <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-indigo-500"/><span className="text-xs font-semibold text-indigo-600">Nomenclatura gerada automaticamente</span></div>
-            {[{l:"Campanha",v:n.campaignName},{l:"Conjunto",v:n.adSetName},{l:"Anúncio",v:n.adName}].map(r=><div key={r.l}><p className="text-[10px] text-indigo-400 mb-1">{r.l}</p><CopyRow label="" value={r.v}/></div>)}
+          {nomes&&<div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-emerald-600"/><span className="text-xs font-semibold text-emerald-700">Nomenclaturas geradas</span><span className="ml-auto text-[10px] text-emerald-600">{nomes.adNames.length} anúncio(s)</span></div>
+            <div><p className="text-[10px] text-emerald-600 font-semibold mb-1">CAMPANHA</p><CopyRow label="" value={nomes.campaignName}/></div>
+            <div><p className="text-[10px] text-emerald-600 font-semibold mb-1">CONJUNTO</p><CopyRow label="" value={nomes.adSetName}/></div>
+            <div><p className="text-[10px] text-emerald-600 font-semibold mb-1">ANÚNCIOS ({nomes.adNames.length})</p>
+              <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
+                {nomes.adNames.map((n,i)=><div key={i} className="flex items-center gap-2 rounded-xl border border-white bg-white px-3 py-1.5"><span className="text-[10px] text-slate-400 font-mono w-5 shrink-0">{String(i+1).padStart(2,"0")}</span><span className="flex-1 font-mono text-xs text-slate-600 truncate">{n}</span><CopyBtn value={n}/></div>)}
+              </div>
+            </div>
           </div>}
         </div>}
+        {/* STEP 4 — REVISÃO */}
         {step===4&&<div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
-            {[{l:"Produto",v:d.product},{l:"Objetivo",v:d.objective},{l:"Campanha",v:d.campaignType},{l:"Período",v:d.period},{l:"Budget",v:d.budget},{l:"Prazo",v:d.dueDate}].map(f=><div key={f.l} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400 mb-0.5">{f.l}</p><p className="text-sm font-semibold text-slate-700">{f.v||"—"}</p></div>)}
+            {[{l:"Produto",v:productLabel},{l:"Objetivo",v:objectiveLabel},{l:"Campanha (slug)",v:d.campaignSlug},{l:"Período",v:d.period},{l:"Canal",v:d.canal==="pago"?"Pago (Ads)":"Orgânico"},{l:"Plataforma",v:d.platform},{l:"Orçamento",v:d.budget},{l:"Prazo",v:d.dueDate}].map(f=><div key={f.l} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400 mb-0.5">{f.l}</p><p className="text-sm font-semibold text-slate-700">{f.v||"—"}</p></div>)}
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400 mb-2">Responsáveis</p><div className="flex gap-2">{d.responsible.map(id=><div key={id} className="flex items-center gap-1.5"><Av m={TEAM[id]} size="md"/><span className="text-xs text-slate-600">{TEAM[id].name}</span></div>)}</div></div>
           {d.landingPageId&&(()=>{const lp=lps.find(l=>l.id===d.landingPageId);return lp&&<div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400 mb-1">Landing Page</p><div className="flex items-center gap-2"><Globe className="h-4 w-4 text-slate-400"/><span className="text-sm font-medium text-slate-700">{lp.name}</span><LPStatusPill status={lp.status}/></div></div>;})()}
-          {n&&<div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3"><p className="text-[10px] text-indigo-400 mb-1">Nomenclatura</p><p className="font-mono text-xs text-slate-600 break-all">{n.campaignName}</p></div>}
+          {nomes&&<div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3"><p className="text-[10px] text-indigo-400 mb-1">Campanha · {nomes.adNames.length} anúncios</p><p className="font-mono text-xs text-slate-600 break-all">{nomes.campaignName}</p></div>}
         </div>}
       </div>
       <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
@@ -340,7 +472,7 @@ function NotifPanel({items,onClose,onMarkAll}:{items:Notification[];onClose:()=>
 function FilterPanel({f,onChange,onClose,onClear}:{f:FilterState;onChange:(k:keyof FilterState,v:string)=>void;onClose:()=>void;onClear:()=>void}){
   return<div className="absolute right-0 top-10 z-50 w-72 rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60 p-4 flex flex-col gap-3">
     <div className="flex items-center justify-between mb-1"><span className="text-sm font-bold text-slate-900">Filtros</span><div className="flex items-center gap-1"><button onClick={onClear} className="rounded-lg px-2 py-1 text-[11px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all">Limpar</button><button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 transition-all"><X className="h-3.5 w-3.5"/></button></div></div>
-    {([{k:"stage" as keyof FilterState,l:"Estágio",o:["",...STAGES.map(s=>s.label)],p:"Todos"},{k:"product" as keyof FilterState,l:"Produto",o:["",...PRODUCTS],p:"Todos"},{k:"priority" as keyof FilterState,l:"Prioridade",o:["","Alta","Média","Baixa"],p:"Todas"},{k:"responsible" as keyof FilterState,l:"Responsável",o:["",...ALL_MEMBERS.map(m=>m.name)],p:"Todos"}]).map(ff=><div key={ff.k} className="flex flex-col gap-1"><label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{ff.l}</label><select value={f[ff.k]} onChange={e=>onChange(ff.k,e.target.value)} className="h-9 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-600 outline-none focus:border-indigo-400 transition-all appearance-none cursor-pointer"><option value="">{ff.p}</option>{ff.o.slice(1).map(o=><option key={o} value={o}>{o}</option>)}</select></div>)}
+    {([{k:"stage" as keyof FilterState,l:"Estágio",o:["",...STAGES.map(s=>s.label)],p:"Todos"},{k:"product" as keyof FilterState,l:"Produto",o:["",...PRODUCTS_LIST.map(x=>x.label)],p:"Todos"},{k:"priority" as keyof FilterState,l:"Prioridade",o:["","Alta","Média","Baixa"],p:"Todas"},{k:"responsible" as keyof FilterState,l:"Responsável",o:["",...ALL_MEMBERS.map(m=>m.name)],p:"Todos"}]).map(ff=><div key={ff.k} className="flex flex-col gap-1"><label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{ff.l}</label><select value={f[ff.k]} onChange={e=>onChange(ff.k,e.target.value)} className="h-9 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-600 outline-none focus:border-indigo-400 transition-all appearance-none cursor-pointer"><option value="">{ff.p}</option>{ff.o.slice(1).map(o=><option key={o} value={o}>{o}</option>)}</select></div>)}
   </div>;
 }
 
@@ -371,8 +503,11 @@ function DetailPanel({c,onClose,onStageChange,onDeleteRequest,onArchiveRequest,o
   useEffect(()=>{setCl(c.checklistState);},[c.id]);
   const clDone=CHECKLIST_ITEMS.filter(i=>cl[i.id]).length;
   const lp=lps.find(l=>l.id===c.landingPageId);
-  const utmParams=c.campaignName?`utm_source=meta&utm_medium=cpc&utm_campaign={{campaign.name}}&utm_content={{ad.name}}`:"";
-  const fullUrl=c.campaignName&&lp?`https://${lp.url}?utm_source=meta&utm_medium=cpc&utm_campaign=${c.campaignName.toLowerCase()}&utm_content=${c.adName.toLowerCase()}`:c.campaignName?`https://acelerai.com.br/lp?utm_source=meta&utm_medium=cpc&utm_campaign=${c.campaignName.toLowerCase()}`:"";
+  const utmSource=c.platform||"facebook";
+  const utmMedium=c.canal&&c.platform?getUtmMedium(c.platform,c.canal):"paid_social";
+  const utmParams=c.campaignName?`utm_source=${utmSource}&utm_medium=${utmMedium}&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term=${c.publicoSlug||""}`:"";
+  const baseUrl=lp?`https://${lp.url}`:"https://acelerai.com.br/lp";
+  const adNamesArr=c.adNames&&c.adNames.length>0?c.adNames:[c.adName].filter(Boolean);
   const tabs:[DetailTab,string][]=[["briefing","Briefing"],["nomenclatura","Nomenclatura"],["utms","UTMs"],["checklist",`Checklist ${clDone}/${CHECKLIST_ITEMS.length}`],["criativos","Criativos"]];
   return<div className="flex h-full w-[460px] shrink-0 flex-col border-l border-slate-200 bg-white">
     <div className="flex items-start justify-between p-5 pb-4 border-b border-slate-100">
@@ -410,14 +545,52 @@ function DetailPanel({c,onClose,onStageChange,onDeleteRequest,onArchiveRequest,o
       </div>}
       {/* NOMENCLATURA */}
       {tab==="nomenclatura"&&<div className="flex flex-col gap-4">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Nomenclatura Padronizada</p>
-        {c.campaignName?<>{[{l:"Campanha",v:c.campaignName,dot:"bg-indigo-500"},{l:"Conjunto de Anúncios",v:c.adSetName,dot:"bg-violet-500"},{l:"Anúncio",v:c.adName,dot:"bg-emerald-500"}].map(r=><div key={r.l} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3"><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${r.dot}`}/><span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{r.l}</span></div><CopyRow label="" value={r.v}/></div>)}<div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 flex items-start gap-2"><BadgeCheck className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5"/><p className="text-xs text-slate-500 leading-relaxed">Padrão: <span className="font-mono text-slate-600">PRODUTO_OBJETIVO_CAMPANHA_PERÍODO</span>. Copie e cole no Meta Ads Manager.</p></div></>:<div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-200 p-10 text-center"><Hash className="h-8 w-8 text-slate-200"/><div><p className="text-sm font-semibold text-slate-500">Nomenclatura não gerada</p><p className="text-xs text-slate-400 mt-1">Complete o briefing para gerar os nomes.</p></div></div>}
+        <div className="flex items-center justify-between"><p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Nomenclatura Padronizada</p>{c.campaignName&&<span className="text-[10px] text-slate-400">{adNamesArr.length} anúncio(s)</span>}</div>
+        {c.campaignName?<>
+          {[{l:"Campanha",v:c.campaignName,dot:"bg-indigo-500"},{l:"Conjunto de Anúncios",v:c.adSetName,dot:"bg-violet-500"}].map(r=><div key={r.l} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3"><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${r.dot}`}/><span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{r.l}</span></div><CopyRow label="" value={r.v}/></div>)}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500"/><span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Anúncios ({adNamesArr.length})</span></div>
+            <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-0.5">
+              {adNamesArr.map((name,i)=><div key={i} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"><span className="text-[10px] font-semibold text-slate-400 w-5 shrink-0">{String(i+1).padStart(2,"0")}</span><span className="flex-1 font-mono text-xs text-slate-600 break-all">{name}</span><CopyBtn value={name}/></div>)}
+            </div>
+          </div>
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 flex items-start gap-2"><BadgeCheck className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5"/><p className="text-xs text-slate-500 leading-relaxed">Padrão: <span className="font-mono text-slate-600">produto_objetivo_campanha_periodo</span>. Tudo em minúsculas, separador underscore.</p></div>
+        </>:<div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-200 p-10 text-center"><Hash className="h-8 w-8 text-slate-200"/><div><p className="text-sm font-semibold text-slate-500">Nomenclatura não gerada</p><p className="text-xs text-slate-400 mt-1">Complete o briefing para gerar os nomes.</p></div></div>}
       </div>}
       {/* UTMs */}
       {tab==="utms"&&<div className="flex flex-col gap-4">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">UTM Parameters & Links</p>
+        <div className="flex items-center justify-between"><p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">UTM Parameters</p>{c.campaignName&&<span className="text-[10px] text-slate-400">{adNamesArr.length} URL(s)</span>}</div>
         {lp?<div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 flex items-center gap-2"><Globe className="h-4 w-4 text-emerald-600 shrink-0"/><div className="flex-1 min-w-0"><p className="text-xs font-semibold text-emerald-700">{lp.name}</p><p className="font-mono text-[10px] text-emerald-600">{lp.url}</p></div><LPStatusPill status={lp.status}/></div>:<button onClick={onConnectLP} className="flex items-center gap-2 rounded-xl border border-dashed border-indigo-200 bg-indigo-50 px-3 py-3 text-xs text-indigo-500 hover:bg-indigo-100 transition-all w-full"><Link2 className="h-3.5 w-3.5"/>Conectar LP para gerar a URL final</button>}
-        {c.campaignName?<><div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3"><p className="text-xs font-semibold text-sky-600 flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5"/>Parâmetros Meta Ads</p><div className="grid grid-cols-2 gap-2">{[{k:"utm_source",v:"meta"},{k:"utm_medium",v:"cpc"},{k:"utm_campaign",v:"{{campaign.name}}"},{k:"utm_content",v:"{{ad.name}}"}].map(p=><div key={p.k} className="rounded-lg border border-slate-200 bg-white p-2.5"><p className="text-[10px] text-slate-400 mb-0.5">{p.k}</p><p className="font-mono text-xs text-slate-600">{p.v}</p></div>)}</div><CopyRow label="Colar no campo URL Parameters do Meta Ads" value={utmParams}/></div><div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3"><p className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5"><ExternalLink className="h-3.5 w-3.5"/>URL Final com UTMs</p><CopyRow label="URL completa para verificação" value={fullUrl}/><button className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-xs text-slate-500 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50 transition-all"><ExternalLink className="h-3.5 w-3.5"/>Testar URL no navegador</button></div><div className="rounded-xl border border-amber-200 bg-amber-50 p-3 flex items-start gap-2"><AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5"/><p className="text-xs text-amber-600 leading-relaxed">Cole os parâmetros no campo <span className="font-semibold">URL Parameters</span> do Meta Ads. As variáveis <span className="font-mono">{"{{campaign.name}}"}</span> são preenchidas automaticamente.</p></div></>:<div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-200 p-10 text-center"><Link2 className="h-8 w-8 text-slate-200"/><p className="text-sm text-slate-400">Gere a nomenclatura primeiro para criar os UTMs.</p></div>}
+        {c.campaignName?<>
+          {/* Padrão de nomenclatura — params */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3">
+            <p className="text-xs font-semibold text-sky-600 flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5"/>Parâmetros Meta Ads</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[{k:"utm_source",v:utmSource},{k:"utm_medium",v:utmMedium},{k:"utm_campaign",v:"{{campaign.name}}"},{k:"utm_content",v:"{{ad.name}}"},{k:"utm_term",v:c.publicoSlug||"—"}].map(p=><div key={p.k} className="rounded-lg border border-slate-200 bg-white p-2.5"><p className="text-[10px] text-slate-400 mb-0.5">{p.k}</p><p className="font-mono text-xs text-slate-600 break-all">{p.v}</p></div>)}
+            </div>
+            <CopyRow label="Colar no campo URL Parameters do Meta Ads" value={utmParams}/>
+          </div>
+          {/* Tabela de UTMs */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between"><p className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5"><LayoutList className="h-3.5 w-3.5"/>Tabela de UTMs — {adNamesArr.length} URL(s)</p></div>
+            {/* Header */}
+            <div className="grid grid-cols-[auto_1fr_auto] text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 gap-2">
+              <span>#</span><span>utm_content / URL</span><span>Copiar</span>
+            </div>
+            <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-0.5">
+              {adNamesArr.map((name,i)=>{
+                const contentPart=name.split("_conteudo_")[1]?`conteudo_${name.split("_conteudo_")[1]}`:name;
+                const fullUtmUrl=`${baseUrl}?utm_source=${utmSource}&utm_medium=${utmMedium}&utm_campaign=${c.campaignName}&utm_content=${contentPart}&utm_term=${c.publicoSlug||""}`;
+                return<div key={i} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <span className="text-[10px] font-semibold text-slate-400 w-5">{String(i+1).padStart(2,"0")}</span>
+                  <div className="min-w-0"><p className="font-mono text-[10px] font-semibold text-indigo-600">{contentPart}</p><p className="font-mono text-[9px] text-slate-400 truncate">{fullUtmUrl}</p></div>
+                  <CopyBtn value={fullUtmUrl}/>
+                </div>;
+              })}
+            </div>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 flex items-start gap-2"><AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5"/><p className="text-xs text-amber-600 leading-relaxed">Cole os parâmetros no campo <span className="font-semibold">URL Parameters</span> do Meta Ads. As variáveis <span className="font-mono">{"{{campaign.name}}"}</span> e <span className="font-mono">{"{{ad.name}}"}</span> são preenchidas automaticamente pela plataforma.</p></div>
+        </>:<div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-200 p-10 text-center"><Link2 className="h-8 w-8 text-slate-200"/><p className="text-sm text-slate-400">Gere a nomenclatura primeiro para criar os UTMs.</p></div>}
       </div>}
       {/* CHECKLIST */}
       {tab==="checklist"&&<div className="flex flex-col gap-4">
@@ -694,8 +867,8 @@ function SettingsView(){
       </div>}
       {sec==="produtos"&&<div className="max-w-xl flex flex-col gap-6">
         <div className="flex items-center justify-between"><div><h2 className="text-lg font-bold text-slate-900">Produtos & Tipos</h2></div><button className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-all"><Plus className="h-3.5 w-3.5"/>Adicionar</button></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col gap-3"><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Produtos</p>{PRODUCTS.map(p=><div key={p} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"><span className="text-sm text-slate-700 font-medium">{p}</span><div className="flex items-center gap-1"><button className="rounded p-1 text-slate-400 hover:text-slate-600 transition-all"><Edit3 className="h-3 w-3"/></button><button className="rounded p-1 text-slate-400 hover:text-red-500 transition-all"><Trash2 className="h-3 w-3"/></button></div></div>)}</div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col gap-3"><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Tipos de Campanha</p>{CAMPAIGN_TYPES.map(t=><div key={t} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"><span className="text-sm text-slate-700 font-medium">{t}</span><div className="flex items-center gap-1"><button className="rounded p-1 text-slate-400 hover:text-slate-600 transition-all"><Edit3 className="h-3 w-3"/></button><button className="rounded p-1 text-slate-400 hover:text-red-500 transition-all"><Trash2 className="h-3 w-3"/></button></div></div>)}</div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col gap-3"><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Produtos</p>{PRODUCTS_LIST.map(p=><div key={p.slug} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"><div><span className="text-sm text-slate-700 font-medium">{p.label}</span><span className="ml-2 font-mono text-[10px] text-slate-400">{p.slug}</span></div><div className="flex items-center gap-1"><button className="rounded p-1 text-slate-400 hover:text-slate-600 transition-all"><Edit3 className="h-3 w-3"/></button><button className="rounded p-1 text-slate-400 hover:text-red-500 transition-all"><Trash2 className="h-3 w-3"/></button></div></div>)}</div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col gap-3"><p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Objetivos</p>{OBJECTIVES_LIST.map(o=><div key={o.slug} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"><div><span className="text-sm text-slate-700 font-medium">{o.label}</span><span className="ml-2 font-mono text-[10px] text-slate-400">{o.slug}</span></div><div className="flex items-center gap-1"><button className="rounded p-1 text-slate-400 hover:text-slate-600 transition-all"><Edit3 className="h-3 w-3"/></button><button className="rounded p-1 text-slate-400 hover:text-red-500 transition-all"><Trash2 className="h-3 w-3"/></button></div></div>)}</div>
       </div>}
       {sec==="integracoes"&&<div className="max-w-xl flex flex-col gap-6">
         <div><h2 className="text-lg font-bold text-slate-900">Integrações</h2><p className="text-sm text-slate-500 mt-1">Conecte as ferramentas do time.</p></div>
