@@ -530,39 +530,68 @@ function DetailPanel({c,onClose,onStageChange,onDeleteRequest,onArchiveRequest,o
   const gCanGenerate=!!(c.productSlug&&c.objectiveSlug&&c.campaignSlug&&c.period&&gcfg.publicoSlug);
   const gNomes=generated&&gCanGenerate?genNomes(c.productSlug!,c.objectiveSlug!,c.campaignSlug!,c.period,gcfg.publicoSlug,gcfg.quantidade):null;
   const tabs:[DetailTab,string][]=[["briefing","Briefing"],["gerador","Gerador"],["checklist",`Checklist ${clDone}/${CHECKLIST_ITEMS.length}`],["criativos","Criativos"]];
-  return<div className="flex h-full w-[460px] shrink-0 flex-col border-l border-slate-200 bg-white">
-    <div className="flex items-start justify-between p-5 pb-4 border-b border-slate-100">
-      <div className="flex-1 min-w-0 pr-3">
-        <div className="flex items-center gap-2 mb-1.5"><StagePill stage={c.stage}/><PIcon p={c.priority}/></div>
-        <h2 className="text-[15px] font-bold text-slate-900 leading-tight">{c.title}</h2>
-        <p className="text-xs text-slate-400 mt-0.5">{c.product} · {c.period} · {c.budget}</p>
+  return<div className="flex h-full w-[560px] shrink-0 flex-col border-l border-slate-200 bg-white">
+    {/* ── Header ── */}
+    <div className="flex items-start justify-between px-6 pt-6 pb-5 border-b border-slate-100">
+      <div className="flex-1 min-w-0 pr-4">
+        <div className="flex items-center gap-2 mb-2"><StagePill stage={c.stage}/><PIcon p={c.priority}/></div>
+        <h2 className="text-xl font-bold text-slate-900 leading-tight">{c.title}</h2>
+        <div className="flex items-center gap-2 mt-1.5">
+          <span className="text-xs text-slate-400">{c.product}</span>
+          <span className="text-slate-200">·</span>
+          <span className="text-xs text-slate-400">{c.period}</span>
+          <span className="text-slate-200">·</span>
+          <span className="text-xs font-semibold text-slate-600">{c.budget}</span>
+        </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <button onClick={onArchiveRequest} title="Arquivar" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"><Archive className="h-3.5 w-3.5"/></button>
-        <button onClick={onDeleteRequest} title="Excluir" className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all"><Trash2 className="h-3.5 w-3.5"/></button>
-        <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"><X className="h-4 w-4"/></button>
+        <button onClick={onArchiveRequest} title="Arquivar" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"><Archive className="h-4 w-4"/></button>
+        <button onClick={onDeleteRequest} title="Excluir" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all"><Trash2 className="h-4 w-4"/></button>
+        <button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"><X className="h-4 w-4"/></button>
       </div>
     </div>
-    {/* LP Banner */}
-    <div className="border-b border-slate-100 px-4 py-2.5">
-      {lp?<div className="flex items-center gap-2"><Globe className="h-3.5 w-3.5 text-slate-400 shrink-0"/><span className="text-xs font-medium text-slate-600 flex-1 truncate">{lp.name}</span><span className="font-mono text-[10px] text-slate-400">{lp.url}</span><LPStatusPill status={lp.status}/><button onClick={onConnectLP} className="ml-1 rounded-lg px-2 py-1 text-[10px] text-indigo-500 hover:bg-indigo-50 transition-all">Trocar</button></div>:<button onClick={onConnectLP} className="flex w-full items-center gap-2 rounded-xl border border-dashed border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-500 hover:bg-indigo-100 transition-all"><Link2 className="h-3.5 w-3.5"/>Conectar Landing Page</button>}
+    {/* ── LP Banner ── */}
+    <div className="border-b border-slate-100 px-6 py-3">
+      {lp
+        ?<div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5">
+          <Globe className="h-4 w-4 text-indigo-400 shrink-0"/>
+          <span className="text-sm font-medium text-slate-700 flex-1 truncate">{lp.name}</span>
+          <span className="font-mono text-[10px] text-slate-400 shrink-0">{lp.url}</span>
+          <LPStatusPill status={lp.status}/>
+          <button onClick={onConnectLP} className="shrink-0 rounded-lg px-2.5 py-1 text-xs text-indigo-500 hover:bg-indigo-50 transition-all font-medium">Trocar</button>
+        </div>
+        :<button onClick={onConnectLP} className="flex w-full items-center gap-2 rounded-xl border border-dashed border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-500 hover:bg-indigo-100 transition-all font-medium">
+          <Link2 className="h-4 w-4"/>Conectar Landing Page
+        </button>
+      }
     </div>
-    {/* Stage bar */}
-    <div className="border-b border-slate-100 px-4 py-2.5">
-      <div className="flex items-center gap-0.5 overflow-x-auto">
-        {STAGES.map((s,i)=>{const curIdx=STAGES.findIndex(st=>st.id===c.stage);const isActive=s.id===c.stage;const isPast=i<curIdx;return<button key={s.id} onClick={()=>onStageChange(c.id,s.id)} className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${isActive?`${s.bg} ${s.text}`:isPast?"text-slate-400 hover:bg-slate-100":"text-slate-300 hover:bg-slate-50"}`}>{isPast&&<Check className="h-2.5 w-2.5"/>}{s.label}</button>;})}
+    {/* ── Stage bar ── */}
+    <div className="border-b border-slate-100 px-6 py-3">
+      <div className="flex items-center gap-0.5 overflow-x-auto" style={{scrollbarWidth:"none"}}>
+        {STAGES.map((s,i)=>{const curIdx=STAGES.findIndex(st=>st.id===c.stage);const isActive=s.id===c.stage;const isPast=i<curIdx;return<button key={s.id} onClick={()=>onStageChange(c.id,s.id)} className={`shrink-0 flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-semibold transition-all ${isActive?`${s.bg} ${s.text} shadow-sm`:isPast?"text-slate-400 hover:bg-slate-100":"text-slate-300 hover:bg-slate-50"}`}>{isPast&&<Check className="h-2.5 w-2.5"/>}{s.label}</button>;})}
       </div>
     </div>
-    <div className="flex border-b border-slate-100 px-4 gap-0 overflow-x-auto">
-      {tabs.map(([id,label])=><button key={id} onClick={()=>setTab(id)} className={`shrink-0 py-3 px-2.5 text-xs font-medium border-b-2 transition-all ${tab===id?"border-indigo-500 text-indigo-600":"border-transparent text-slate-400 hover:text-slate-600"}`}>{label}</button>)}
+    {/* ── Tabs ── */}
+    <div className="flex border-b border-slate-100 px-6 gap-1">
+      {tabs.map(([id,label])=><button key={id} onClick={()=>setTab(id)} className={`shrink-0 py-3.5 px-3 text-[13px] font-semibold border-b-2 transition-all ${tab===id?"border-indigo-500 text-indigo-600":"border-transparent text-slate-400 hover:text-slate-600"}`}>{label}</button>)}
     </div>
-    <div className="flex-1 overflow-y-auto p-4">
+    <div className="flex-1 overflow-y-auto p-6">
       {/* BRIEFING */}
-      {tab==="briefing"&&<div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between"><p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Briefing</p><button onClick={onBriefingEdit} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"><Edit3 className="h-3 w-3"/>Editar</button></div>
-        <div className="grid grid-cols-2 gap-2">{[{l:"Produto",v:c.product},{l:"Objetivo",v:c.objective},{l:"Tipo",v:c.campaignType},{l:"Período",v:c.period},{l:"Budget",v:c.budget},{l:"Prazo",v:c.dueDate}].map(f=><div key={f.l} className="rounded-xl border border-slate-100 bg-slate-50 p-2.5"><p className="text-[10px] text-slate-400 mb-0.5">{f.l}</p><p className="text-sm font-semibold text-slate-700">{f.v}</p></div>)}</div>
-        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] text-slate-400 mb-2">Responsáveis</p><div className="flex flex-wrap gap-2">{c.responsible.map(m=><div key={m.id} className="flex items-center gap-1.5"><Av m={m} size="md"/><span className="text-xs text-slate-600">{m.name}</span></div>)}</div></div>
-        {c.briefingFilled&&c.briefingData?<div className="flex flex-col gap-2.5">{[{l:"Objetivo",v:c.briefingData.objetivo},{l:"Público-alvo",v:c.briefingData.publico},{l:"Proposta de Valor",v:c.briefingData.proposta},{l:"Tom de Voz",v:c.briefingData.tom},{l:"Referências de Copy",v:c.briefingData.referencias},{l:"Criativos Necessários",v:c.briefingData.criativos}].filter(f=>f.v).map(f=><div key={f.l} className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-400 mb-1">{f.l}</p><p className="text-xs text-slate-600 leading-relaxed">{f.v}</p></div>)}</div>:<div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-8 text-center"><AlertCircle className="h-6 w-6 text-amber-400"/><div><p className="text-sm font-semibold text-amber-700">Briefing não preenchido</p><p className="text-xs text-amber-500 mt-1">Preencha antes de continuar.</p></div><button onClick={onBriefingEdit} className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-600 transition-all">Preencher Briefing</button></div>}
+      {tab==="briefing"&&<div className="flex flex-col gap-5">
+        <div className="flex items-center justify-between"><p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Informações da Campanha</p><button onClick={onBriefingEdit} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-all border border-slate-200"><Edit3 className="h-3.5 w-3.5"/>Editar</button></div>
+        <div className="grid grid-cols-3 gap-3">{[{l:"Produto",v:c.product},{l:"Objetivo",v:c.objective},{l:"Tipo",v:c.campaignType},{l:"Período",v:c.period},{l:"Budget",v:c.budget},{l:"Prazo",v:c.dueDate}].map(f=><div key={f.l} className="rounded-xl border border-slate-100 bg-slate-50 p-3.5"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">{f.l}</p><p className="text-sm font-bold text-slate-700">{f.v}</p></div>)}</div>
+        <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3.5"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2.5">Responsáveis</p><div className="flex flex-wrap gap-3">{c.responsible.map(m=><div key={m.id} className="flex items-center gap-2"><Av m={m} size="md"/><span className="text-sm font-medium text-slate-700">{m.name}</span></div>)}</div></div>
+        {c.briefingFilled&&c.briefingData
+          ?<div className="flex flex-col gap-3">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Detalhes do Briefing</p>
+            {[{l:"Objetivo",v:c.briefingData.objetivo},{l:"Público-alvo",v:c.briefingData.publico},{l:"Proposta de Valor",v:c.briefingData.proposta},{l:"Tom de Voz",v:c.briefingData.tom},{l:"Referências de Copy",v:c.briefingData.referencias},{l:"Criativos Necessários",v:c.briefingData.criativos}].filter(f=>f.v).map(f=><div key={f.l} className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3.5"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">{f.l}</p><p className="text-sm text-slate-700 leading-relaxed">{f.v}</p></div>)}
+          </div>
+          :<div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-10 text-center">
+            <AlertCircle className="h-8 w-8 text-amber-400"/>
+            <div><p className="text-base font-bold text-amber-700">Briefing não preenchido</p><p className="text-sm text-amber-500 mt-1">Preencha antes de continuar com a campanha.</p></div>
+            <button onClick={onBriefingEdit} className="rounded-xl bg-amber-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 transition-all">Preencher Briefing</button>
+          </div>
+        }
       </div>}
       {/* GERADOR */}
       {tab==="gerador"&&<div className="flex flex-col gap-4">
@@ -692,9 +721,9 @@ function DetailPanel({c,onClose,onStageChange,onDeleteRequest,onArchiveRequest,o
         {c.attachments>0?<div className="flex flex-col gap-2">{[{name:"video_30s_v1.mp4",type:"Vídeo 30s",status:"aprovado",size:"48 MB"},{name:"video_15s_v1.mp4",type:"Vídeo 15s",status:"revisao",size:"22 MB"},{name:"carrossel_bf_v2.zip",type:"Carrossel",status:"aprovado",size:"12 MB"},{name:"static_imagem_1.jpg",type:"Imagem",status:"briefing",size:"3.2 MB"}].slice(0,c.attachments).map(a=>{const sm:Record<string,{l:string;c:string}>={aprovado:{l:"Aprovado",c:"text-emerald-600 bg-emerald-50"},revisao:{l:"Em Revisão",c:"text-amber-600 bg-amber-50"},briefing:{l:"Aguardando",c:"text-slate-500 bg-slate-100"}};const s=sm[a.status];return<div key={a.name} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100"><Image className="h-3.5 w-3.5 text-slate-400"/></div><div className="flex-1 min-w-0"><p className="text-xs font-medium text-slate-700 truncate">{a.name}</p><p className="text-[10px] text-slate-400">{a.type} · {a.size}</p></div><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.c}`}>{s.l}</span></div>;})}</div>:<div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-200 p-10 text-center"><Image className="h-8 w-8 text-slate-200"/><div><p className="text-sm font-semibold text-slate-500">Nenhum criativo anexado</p><p className="text-xs text-slate-400 mt-1">Adicione vídeos, imagens e carrosséis.</p></div></div>}
       </div>}
     </div>
-    <div className="border-t border-slate-100 p-4 flex items-center gap-2">
-      <button className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white hover:bg-indigo-700 transition-all"><ArrowUpRight className="h-3.5 w-3.5"/>Abrir no Meta Ads</button>
-      {lp&&<button className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2.5 text-xs text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-all"><Eye className="h-3.5 w-3.5"/>Ver LP</button>}
+    <div className="border-t border-slate-100 px-6 py-4 flex items-center gap-3">
+      <button className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-200"><ArrowUpRight className="h-4 w-4"/>Abrir no Meta Ads</button>
+      {lp&&<button className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 transition-all"><Eye className="h-4 w-4"/>Ver LP</button>}
     </div>
   </div>;
 }
