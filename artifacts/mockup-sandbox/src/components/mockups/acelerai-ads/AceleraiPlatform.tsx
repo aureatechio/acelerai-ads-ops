@@ -135,6 +135,19 @@ const CAMPAIGN_SLUGS = [
   {slug:"reativacao",label:"Reativação"},
   {slug:"upsell",label:"Upsell"},
 ];
+const LP_TIPOS = [
+  {slug:"captacao",label:"Captação"},
+  {slug:"conversao",label:"Conversão"},
+  {slug:"lancamento",label:"Lançamento"},
+  {slug:"oferta",label:"Oferta"},
+  {slug:"webinar",label:"Webinar"},
+  {slug:"quiz",label:"Quiz"},
+  {slug:"retargeting",label:"Retargeting"},
+  {slug:"obrigado",label:"Pág. Obrigado"},
+  {slug:"downsell",label:"Downsell"},
+  {slug:"checkout",label:"Checkout"},
+];
+const LP_VERSOES = ["v1","v2","v3","v4"];
 
 function toSlug(v:string){
   return v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_").replace(/[^\w-]/g,"").replace(/_+/g,"_");
@@ -260,13 +273,12 @@ function Modal({onClose,children,wide=false}:{onClose:()=>void;children:React.Re
   );
 }
 
-// ─── NEW CAMPAIGN WIZARD ──────────────────────────────────────────────────────
+// ─── NEW CAMPAIGN MODAL ───────────────────────────────────────────────────────
 interface WD{
   productSlug:string; objectiveSlug:string; campaignSlug:string;
   period:string; budget:string; priority:Priority; dueDate:string;
   responsible:string[];
 }
-const WSTEPS=["Campanha","Equipe"];
 
 function InpText({label,value,onChange,placeholder,mono=false}:{label:string;value:string;onChange:(v:string)=>void;placeholder?:string;mono?:boolean}){
   return<div className="flex flex-col gap-1.5">
@@ -277,13 +289,12 @@ function InpText({label,value,onChange,placeholder,mono=false}:{label:string;val
 }
 
 function NewCampaignModal({onClose,onSave}:{onClose:()=>void;onSave:(c:Campaign)=>void}){
-  const[step,setStep]=useState(0);
   const[d,setD]=useState<WD>({productSlug:"",objectiveSlug:"",campaignSlug:"",period:"",budget:"",priority:"medium",dueDate:"",responsible:[]});
   const u=(k:keyof WD)=>(v:string)=>setD(p=>({...p,[k]:v}));
   const productLabel=PRODUCTS_LIST.find(x=>x.slug===d.productSlug)?.label||"";
   const objectiveLabel=OBJECTIVES_LIST.find(x=>x.slug===d.objectiveSlug)?.label||"";
   const previewName=d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period?`${d.productSlug}_${d.objectiveSlug}_${d.campaignSlug}_${d.period}`:"";
-  const canNext=[!!(d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period&&d.budget),!!(d.responsible.length>0&&d.dueDate)][step];
+  const canCreate=!!(d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period&&d.budget&&d.dueDate&&d.responsible.length>0);
   const toggleR=(id:string)=>setD(p=>({...p,responsible:p.responsible.includes(id)?p.responsible.filter(r=>r!==id):[...p.responsible,id]}));
   const create=()=>{
     const prod=PRODUCTS_LIST.find(x=>x.slug===d.productSlug);
@@ -293,65 +304,68 @@ function NewCampaignModal({onClose,onSave}:{onClose:()=>void;onSave:(c:Campaign)
     onClose();
   };
   return(
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} wide>
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-        <div><h2 className="text-base font-bold text-slate-900">Nova Campanha</h2><p className="text-xs text-slate-400 mt-0.5">{WSTEPS[step]} — Passo {step+1} de {WSTEPS.length}</p></div>
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600"><Zap className="h-4 w-4 text-white"/></div>
+          <div><h2 className="text-base font-bold text-slate-900">Nova Campanha</h2><p className="text-xs text-slate-400 mt-0.5">Preencha os dados e o card vai para Briefing automaticamente</p></div>
+        </div>
         <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-all"><X className="h-4 w-4"/></button>
       </div>
-      <div className="flex items-center gap-0 border-b border-slate-100 px-6 py-3">
-        {WSTEPS.map((s,i)=>(
-          <div key={s} className="flex items-center gap-0">
-            <button onClick={()=>i<step&&setStep(i)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${i===step?"bg-indigo-50 text-indigo-600":i<step?"text-slate-500 hover:text-slate-700":"text-slate-300"}`}>
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${i===step?"bg-indigo-600 text-white":i<step?"bg-emerald-500 text-white":"bg-slate-200 text-slate-400"}`}>{i<step?<Check className="h-2.5 w-2.5"/>:i+1}</span>{s}
-            </button>
-            {i<WSTEPS.length-1&&<ChevronRight className="h-3.5 w-3.5 text-slate-200 mx-0.5"/>}
-          </div>
-        ))}
-      </div>
-      <div className="flex-1 overflow-y-auto p-6">
-        {step===0&&<div className="flex flex-col gap-5">
+      {/* Body — single scrollable form */}
+      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+        {/* Produto + Objetivo */}
+        <div className="flex flex-col gap-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Identificação</p>
           <div className="grid grid-cols-2 gap-4">
-            <Sel label="Produto" opts={PRODUCTS_LIST.map(x=>x.label)} value={productLabel} onChange={v=>{const f=PRODUCTS_LIST.find(x=>x.label===v);if(f)u("productSlug")(f.slug);}}/>
-            <Sel label="Objetivo" opts={OBJECTIVES_LIST.map(x=>x.label)} value={objectiveLabel} onChange={v=>{const f=OBJECTIVES_LIST.find(x=>x.label===v);if(f)u("objectiveSlug")(f.slug);}}/>
+            <Sel label="Produto *" opts={PRODUCTS_LIST.map(x=>x.label)} value={productLabel} onChange={v=>{const f=PRODUCTS_LIST.find(x=>x.label===v);if(f)u("productSlug")(f.slug);}}/>
+            <Sel label="Objetivo *" opts={OBJECTIVES_LIST.map(x=>x.label)} value={objectiveLabel} onChange={v=>{const f=OBJECTIVES_LIST.find(x=>x.label===v);if(f)u("objectiveSlug")(f.slug);}}/>
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Tipo de Campanha</label>
-            <div className="flex flex-wrap gap-2">
-              {CAMPAIGN_SLUGS.map(cs=><button key={cs.slug} onClick={()=>u("campaignSlug")(cs.slug)} className={`rounded-xl border px-3.5 py-2 text-sm font-medium transition-all ${d.campaignSlug===cs.slug?"border-indigo-300 bg-indigo-50 text-indigo-700":"border-slate-200 text-slate-500 hover:border-slate-300"}`}>{cs.label}</button>)}
-            </div>
+        </div>
+        {/* Tipo de Campanha */}
+        <div className="flex flex-col gap-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Tipo de Campanha *</p>
+          <div className="flex flex-wrap gap-2">
+            {CAMPAIGN_SLUGS.map(cs=><button key={cs.slug} onClick={()=>u("campaignSlug")(cs.slug)} className={`rounded-xl border px-3.5 py-2 text-sm font-medium transition-all ${d.campaignSlug===cs.slug?"border-indigo-400 bg-indigo-50 text-indigo-700 shadow-sm":"border-slate-200 text-slate-500 hover:border-indigo-200 hover:text-slate-700"}`}>{cs.label}</button>)}
           </div>
-          {previewName&&<div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-            <p className="text-[10px] font-semibold text-indigo-400 mb-1 uppercase tracking-widest">Pré-visualização do nome</p>
-            <p className="font-mono text-xs text-indigo-700">{previewName}_<span className="text-indigo-400">[período]</span></p>
-          </div>}
+        </div>
+        {/* Nome preview */}
+        {previewName&&<div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-violet-50 px-4 py-3 flex items-center gap-3">
+          <Hash className="h-4 w-4 text-indigo-400 shrink-0"/>
+          <div className="flex-1 min-w-0"><p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-widest mb-0.5">Nome gerado</p><p className="font-mono text-sm text-indigo-700 truncate">{previewName}</p></div>
+          <CopyBtn value={previewName}/>
+        </div>}
+        {/* Período + Orçamento + Prazo */}
+        <div className="flex flex-col gap-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Planejamento</p>
           <div className="grid grid-cols-3 gap-3">
-            <Sel label="Período" opts={PERIODOS_LIST} value={d.period} onChange={u("period")}/>
-            <InpText label="Orçamento" value={d.budget} onChange={u("budget")} placeholder="R$ 5.000"/>
-            <InpText label="Prazo" value={d.dueDate} onChange={u("dueDate")} placeholder="Nov 29"/>
+            <Sel label="Período *" opts={PERIODOS_LIST} value={d.period} onChange={u("period")}/>
+            <InpText label="Orçamento *" value={d.budget} onChange={u("budget")} placeholder="R$ 5.000"/>
+            <InpText label="Prazo *" value={d.dueDate} onChange={u("dueDate")} placeholder="Nov 29"/>
           </div>
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 flex items-start gap-2">
-            <Sparkles className="h-4 w-4 text-amber-500 shrink-0 mt-0.5"/>
-            <p className="text-xs text-amber-700 leading-relaxed">Plataforma, canal, público e geração completa de nomenclaturas + UTMs são feitos no card da campanha (aba <strong>Gerador</strong>).</p>
+        </div>
+        {/* Responsáveis */}
+        <div className="flex flex-col gap-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Equipe *</p>
+          <div className="grid grid-cols-3 gap-2">{ALL_MEMBERS.map(m=>{const sel=d.responsible.includes(m.id);return<button key={m.id} onClick={()=>toggleR(m.id)} className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all ${sel?"border-indigo-300 bg-indigo-50":"border-slate-200 hover:border-slate-300"}`}><Av m={m}/><span className={`text-sm font-medium flex-1 ${sel?"text-indigo-700":"text-slate-600"}`}>{m.name}</span>{sel&&<Check className="h-3.5 w-3.5 text-indigo-600 shrink-0"/>}</button>;})}</div>
+        </div>
+        {/* Prioridade */}
+        <div className="flex flex-col gap-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Prioridade</p>
+          <div className="flex gap-2">{(["high","medium","low"] as Priority[]).map(p=>{const info=p==="high"?{l:"Alta",c:"border-red-200 bg-red-50 text-red-600"}:p==="medium"?{l:"Média",c:"border-amber-200 bg-amber-50 text-amber-600"}:{l:"Baixa",c:"border-slate-100 bg-slate-50 text-slate-400"};return<button key={p} onClick={()=>setD(dd=>({...dd,priority:p}))} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition-all ${d.priority===p?info.c:"border-slate-200 text-slate-400 hover:border-slate-300"}`}><Flag className="h-3.5 w-3.5"/>{info.l}</button>;})}
           </div>
-        </div>}
-        {step===1&&<div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Responsáveis</label>
-            <div className="grid grid-cols-2 gap-2">{ALL_MEMBERS.map(m=><button key={m.id} onClick={()=>toggleR(m.id)} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${d.responsible.includes(m.id)?"border-indigo-300 bg-indigo-50":"border-slate-200 hover:border-slate-300"}`}><Av m={m} size="md"/><span className="text-sm text-slate-700 font-medium">{m.name}</span>{d.responsible.includes(m.id)&&<Check className="ml-auto h-4 w-4 text-indigo-600"/>}</button>)}</div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Prioridade</label>
-            <div className="flex gap-2">{(["high","medium","low"] as Priority[]).map(p=>{const info=p==="high"?{l:"Alta",c:"border-red-200 bg-red-50 text-red-600"}:p==="medium"?{l:"Média",c:"border-amber-200 bg-amber-50 text-amber-600"}:{l:"Baixa",c:"border-slate-200 bg-slate-50 text-slate-500"};return<button key={p} onClick={()=>setD(dd=>({...dd,priority:p}))} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition-all ${d.priority===p?info.c:"border-slate-200 text-slate-400 hover:border-slate-300"}`}><Flag className="h-3.5 w-3.5"/>{info.l}</button>;})}
-            </div>
-          </div>
-          <InpText label="Prazo final" value={d.dueDate} onChange={u("dueDate")} placeholder="Ex: Nov 29"/>
-        </div>}
+        </div>
+        {/* Info tip */}
+        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 flex items-start gap-2">
+          <Sparkles className="h-4 w-4 text-amber-500 shrink-0 mt-0.5"/>
+          <p className="text-xs text-amber-700 leading-relaxed">Canal, plataforma, público e UTMs são gerados no card da campanha — aba <strong>Gerador</strong>.</p>
+        </div>
       </div>
+      {/* Footer */}
       <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
-        <button onClick={()=>step>0?setStep(s=>s-1):onClose()} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-all"><ChevronLeft className="h-4 w-4"/>{step===0?"Cancelar":"Voltar"}</button>
-        {step<WSTEPS.length-1
-          ?<button disabled={!canNext} onClick={()=>setStep(s=>s+1)} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-30">Próximo<ChevronRight className="h-4 w-4"/></button>
-          :<button disabled={!canNext} onClick={create} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-30"><Zap className="h-4 w-4"/>Criar Campanha</button>}
+        <button onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-all">Cancelar</button>
+        <button disabled={!canCreate} onClick={create} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-30"><Zap className="h-4 w-4"/>Criar Campanha</button>
       </div>
     </Modal>
   );
@@ -637,152 +651,94 @@ function DetailPanel({c,onClose,onStageChange,onDeleteRequest,onArchiveRequest,o
 interface LPFormData { name:string; url:string; status:LPStatus; description:string; productSlug:string; lpIdentifier:string; }
 
 function LPModal({initial,onClose,onSave,title}:{initial?:Partial<LPFormData>;onClose:()=>void;onSave:(d:LPFormData)=>void;title:string}){
-  const[step,setStep]=useState(0);
-  const[d,setD]=useState<LPFormData>({name:initial?.name||"",url:initial?.url||"",status:initial?.status||"rascunho",description:initial?.description||"",productSlug:initial?.productSlug||"",lpIdentifier:initial?.lpIdentifier||""});
+  // Parse initial identifier into tipo+versão
+  const initIdent=initial?.lpIdentifier||"";
+  const initVer=LP_VERSOES.find(v=>v!=="v1"&&initIdent.endsWith("_"+v))||"v1";
+  const initTipo=initVer==="v1"?initIdent:initIdent.slice(0,-(initVer.length+1));
+  const[d,setD]=useState<LPFormData>({name:initial?.name||"",url:initial?.url||"",status:initial?.status||"rascunho",description:initial?.description||"",productSlug:initial?.productSlug||"",lpIdentifier:initIdent});
+  const[lpTipo,setLpTipo]=useState(initTipo);
+  const[lpVer,setLpVer]=useState(initVer);
   const u=(k:keyof LPFormData)=>(v:string)=>setD(p=>({...p,[k]:v}));
-  const lpSlug=d.productSlug&&d.lpIdentifier?`lp_${d.productSlug}_${toSlug(d.lpIdentifier)}`:"";
-  const canNext=!!(d.name&&d.url&&d.productSlug&&d.lpIdentifier);
+  const computeIdent=(tipo:string,ver:string)=>ver==="v1"?tipo:`${tipo}_${ver}`;
+  const setTipo=(t:string)=>{setLpTipo(t);setD(p=>({...p,lpIdentifier:computeIdent(t,lpVer)}));};
+  const setVer=(v:string)=>{setLpVer(v);setD(p=>({...p,lpIdentifier:computeIdent(lpTipo,v)}));};
+  const lpSlug=d.productSlug&&d.lpIdentifier?`lp_${d.productSlug}_${d.lpIdentifier}`:"";
+  const canSave=!!(d.name&&d.url&&d.productSlug&&lpTipo);
   const ST_OPTS:[LPStatus,string,string][]=[
-    ["rascunho","Rascunho","Em construção ou sem tráfego ainda."],
-    ["em-teste","Em Teste","Teste A/B ou validação em andamento."],
-    ["no-ar","No Ar","Recebendo tráfego ativo de campanhas."],
-    ["pausada","Pausada","Tráfego interrompido temporariamente."],
+    ["rascunho","Rascunho","Em construção ou sem tráfego."],
+    ["em-teste","Em Teste","Teste A/B ou validação ativa."],
+    ["no-ar","No Ar","Recebendo tráfego de campanhas."],
+    ["pausada","Pausada","Tráfego interrompido."],
   ];
   return(
     <Modal onClose={onClose} wide>
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-        <div>
-          <h2 className="text-base font-bold text-slate-900">{title}</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Passo {step+1} de 2 — {step===0?"Detalhes da LP":"Revisar & Salvar"}</p>
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600"><Globe className="h-4 w-4 text-white"/></div>
+          <div><h2 className="text-base font-bold text-slate-900">{title}</h2><p className="text-xs text-slate-400 mt-0.5">Slug gerado automaticamente — zero digitação manual</p></div>
         </div>
         <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-all"><X className="h-4 w-4"/></button>
       </div>
-      {/* Step indicator */}
-      <div className="flex items-center gap-0 border-b border-slate-100 px-6 py-3">
-        {["Detalhes","Revisão"].map((s,i)=>(
-          <div key={s} className="flex items-center gap-0">
-            <button onClick={()=>i<step&&setStep(i)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${i===step?"bg-indigo-50 text-indigo-600":i<step?"text-slate-500 hover:text-slate-700":"text-slate-300"}`}>
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${i===step?"bg-indigo-600 text-white":i<step?"bg-emerald-500 text-white":"bg-slate-200 text-slate-400"}`}>{i<step?<Check className="h-2.5 w-2.5"/>:i+1}</span>{s}
-            </button>
-            {i<1&&<ChevronRight className="h-3.5 w-3.5 text-slate-200 mx-0.5"/>}
-          </div>
-        ))}
-      </div>
       {/* Body */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {step===0&&(
-          <div className="flex flex-col gap-5">
-            {/* Nomenclatura section */}
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 flex flex-col gap-3">
-              <div className="flex items-center gap-2"><Hash className="h-4 w-4 text-indigo-500"/><span className="text-xs font-semibold text-indigo-700">Nomenclatura da LP</span></div>
-              <div className="grid grid-cols-2 gap-3">
-                <Sel label="Produto *" opts={PRODUCTS_LIST.map(x=>x.label)} value={PRODUCTS_LIST.find(x=>x.slug===d.productSlug)?.label||""} onChange={v=>{const f=PRODUCTS_LIST.find(x=>x.label===v);if(f)u("productSlug")(f.slug);}}/>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Identificador *</label>
-                  <input value={d.lpIdentifier} onChange={e=>u("lpIdentifier")(e.target.value.toLowerCase().replace(/\s+/g,"_").replace(/[^\w-]/g,""))} placeholder="ex: main, v2, lancamento" className="h-9 rounded-xl border border-indigo-200 bg-white px-3 font-mono text-sm text-slate-700 outline-none focus:border-indigo-400 transition-all placeholder:text-slate-300 placeholder:font-sans"/>
-                </div>
-              </div>
-              {lpSlug?<div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2">
-                <span className="text-[10px] text-indigo-400">Slug gerado:</span>
-                <span className="flex-1 font-mono text-xs text-indigo-700">{lpSlug}</span>
-                <CopyBtn value={lpSlug}/>
-              </div>:<p className="text-[10px] text-indigo-400">Preencha Produto + Identificador para gerar o slug.</p>}
-            </div>
-            {/* Name */}
+      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+        {/* Nomenclatura — fully controlled */}
+        <div className="rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50 to-white p-5 flex flex-col gap-4">
+          <div className="flex items-center gap-2"><Hash className="h-4 w-4 text-indigo-500"/><span className="text-sm font-bold text-indigo-700">Nomenclatura</span><span className="ml-auto text-[10px] text-indigo-400">Tudo automático</span></div>
+          {/* Row 1: Produto + Tipo */}
+          <div className="grid grid-cols-2 gap-3">
+            <Sel label="Produto *" opts={PRODUCTS_LIST.map(x=>x.label)} value={PRODUCTS_LIST.find(x=>x.slug===d.productSlug)?.label||""} onChange={v=>{const f=PRODUCTS_LIST.find(x=>x.label===v);if(f)u("productSlug")(f.slug);}}/>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Nome da LP <span className="text-red-400">*</span></label>
-              <input value={d.name} onChange={e=>u("name")(e.target.value)} placeholder="Ex: LP Principal – Aceleraí"
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-300"/>
-              <p className="text-[10px] text-slate-400">Nome interno para identificação no sistema.</p>
+              <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Tipo de Página *</label>
+              <div className="flex flex-wrap gap-1.5">{LP_TIPOS.map(t=><button key={t.slug} onClick={()=>setTipo(t.slug)} className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-all ${lpTipo===t.slug?"border-indigo-400 bg-indigo-600 text-white":"border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600"}`}>{t.label}</button>)}</div>
             </div>
-            {/* URL */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">URL da LP <span className="text-red-400">*</span></label>
-              <div className="flex items-center gap-0 rounded-xl border border-slate-200 bg-white overflow-hidden focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
-                <span className="flex items-center px-3 h-10 text-sm text-slate-400 bg-slate-50 border-r border-slate-200 shrink-0 select-none">https://</span>
-                <input value={d.url} onChange={e=>u("url")(e.target.value)} placeholder="acelerai.com.br/lp"
-                  className="flex-1 h-10 px-3 text-sm text-slate-800 outline-none bg-transparent placeholder:text-slate-300"/>
-              </div>
-              {d.url&&<p className="text-[10px] text-indigo-500 font-mono">https://{d.url}</p>}
-            </div>
-            {/* Status */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Status inicial</label>
-              <div className="grid grid-cols-2 gap-2">
-                {ST_OPTS.map(([val,label,desc])=>{const st=LP_STATUS[val];return(
-                  <button key={val} onClick={()=>setD(dd=>({...dd,status:val}))} className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${d.status===val?`${st.bg} border-current`:"border-slate-200 hover:border-slate-300"}`}>
-                    <span className={`mt-0.5 h-4 w-4 shrink-0 flex items-center justify-center rounded-full border-2 transition-all ${d.status===val?"border-current bg-current":""}`}>
-                      {d.status===val&&<Check className="h-2.5 w-2.5 text-white" strokeWidth={3}/>}
-                    </span>
-                    <div><p className={`text-xs font-semibold ${d.status===val?st.text:"text-slate-600"}`}>{label}</p><p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{desc}</p></div>
-                  </button>
-                );})}
-              </div>
-            </div>
-            {/* Description */}
-            <TA label="Descrição" value={d.description} onChange={u("description")} rows={2}/>
           </div>
-        )}
-        {step===1&&(
-          <div className="flex flex-col gap-5">
-            {/* Summary card */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 flex flex-col gap-4">
-              <div className="flex items-start gap-4">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${LP_STATUS[d.status].bg}`}><Globe className={`h-5 w-5 ${LP_STATUS[d.status].text}`}/></div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap"><h3 className="text-sm font-bold text-slate-900">{d.name||"—"}</h3><LPStatusPill status={d.status}/></div>
-                  <p className="font-mono text-xs text-slate-500 mt-0.5">https://{d.url||"—"}</p>
-                  {d.description&&<p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{d.description}</p>}
-                </div>
-              </div>
-            </div>
-            {/* UTM preview */}
-            {d.url&&(
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-2">
-                  <Link2 className="h-4 w-4 text-indigo-500"/>
-                  <p className="text-sm font-semibold text-slate-700">Prévia de URL com UTM</p>
-                </div>
-                <p className="text-xs text-slate-500 leading-relaxed">Quando uma campanha for conectada a esta LP, as URLs serão geradas automaticamente neste formato:</p>
-                <div className="flex flex-col gap-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    {[{k:"utm_source",v:"meta"},{k:"utm_medium",v:"cpc"},{k:"utm_campaign",v:"{{campaign.name}}"},{k:"utm_content",v:"{{ad.name}}"}].map(p=>(
-                      <div key={p.k} className="rounded-lg border border-slate-200 bg-white p-2.5">
-                        <p className="text-[10px] text-slate-400 mb-0.5">{p.k}</p>
-                        <p className="font-mono text-xs text-slate-600">{p.v}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 flex flex-col gap-1.5">
-                    <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-widest">Exemplo de URL completa</p>
-                    <p className="font-mono text-[10px] text-slate-600 break-all leading-relaxed">{exampleUrl}</p>
-                    <CopyBtn value={exampleUrl}/>
-                  </div>
-                </div>
-                <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 flex items-start gap-2">
-                  <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5"/>
-                  <p className="text-xs text-amber-600 leading-relaxed">Após criar a LP, conecte-a a uma campanha na aba <span className="font-semibold">Campanhas</span> para gerar e copiar as URLs com UTM personalizadas.</p>
-                </div>
-              </div>
-            )}
+          {/* Versão */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Versão</label>
+            <div className="flex gap-2">{LP_VERSOES.map(v=><button key={v} onClick={()=>setVer(v)} className={`rounded-lg border px-3.5 py-1.5 text-xs font-mono font-semibold transition-all ${lpVer===v?"border-indigo-400 bg-indigo-50 text-indigo-700":"border-slate-200 text-slate-400 hover:border-slate-300"}`}>{v}</button>)}</div>
           </div>
-        )}
+          {/* Slug preview */}
+          {lpSlug?<div className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-white px-4 py-3">
+            <span className="text-[10px] text-indigo-400 shrink-0">Slug:</span>
+            <span className="flex-1 font-mono text-sm font-semibold text-indigo-700">{lpSlug}</span>
+            <CopyBtn value={lpSlug}/>
+          </div>:<div className="flex items-center gap-2 rounded-xl border border-dashed border-indigo-200 px-4 py-3"><Hash className="h-4 w-4 text-indigo-200"/><span className="text-xs text-indigo-300">Selecione Produto + Tipo para gerar o slug</span></div>}
+        </div>
+        {/* Name + URL */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Nome da LP *</label>
+            <input value={d.name} onChange={e=>u("name")(e.target.value)} placeholder="Ex: LP Principal – Aceleraí" className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-300"/>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">URL *</label>
+            <div className="flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+              <span className="flex items-center px-3 h-10 text-xs text-slate-400 bg-slate-50 border-r border-slate-200 shrink-0 select-none">https://</span>
+              <input value={d.url} onChange={e=>u("url")(e.target.value)} placeholder="acelerai.com.br/lp" className="flex-1 h-10 px-3 text-sm text-slate-800 outline-none bg-transparent placeholder:text-slate-300"/>
+            </div>
+          </div>
+        </div>
+        {/* Status */}
+        <div className="flex flex-col gap-2">
+          <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Status inicial</label>
+          <div className="grid grid-cols-4 gap-2">
+            {ST_OPTS.map(([val,label,desc])=>{const st=LP_STATUS[val];return(
+              <button key={val} onClick={()=>setD(dd=>({...dd,status:val}))} className={`flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition-all ${d.status===val?`${st.bg} ${st.border||"border-current"}`:"border-slate-200 hover:border-slate-300"}`}>
+                <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${d.status===val?"border-current bg-current":""}`}>{d.status===val&&<Check className="h-2.5 w-2.5 text-white" strokeWidth={3}/>}</div>
+                <p className={`text-xs font-semibold ${d.status===val?st.text:"text-slate-600"}`}>{label}</p>
+                <p className="text-[10px] text-slate-400 leading-tight">{desc}</p>
+              </button>
+            );})}
+          </div>
+        </div>
+        {/* Description */}
+        <TA label="Descrição" value={d.description} onChange={u("description")} rows={2}/>
       </div>
       {/* Footer */}
       <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
-        <button onClick={()=>step>0?setStep(s=>s-1):onClose()} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-all">
-          <ChevronLeft className="h-4 w-4"/>{step===0?"Cancelar":"Voltar"}
-        </button>
-        {step<1?(
-          <button disabled={!canNext} onClick={()=>setStep(1)} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-30">
-            Próximo<ChevronRight className="h-4 w-4"/>
-          </button>
-        ):(
-          <button onClick={()=>{onSave(d);onClose();}} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all">
-            <Globe className="h-4 w-4"/>Salvar Landing Page
-          </button>
-        )}
+        <button onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-all">Cancelar</button>
+        <button disabled={!canSave} onClick={()=>onSave(d)} className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-30"><Globe className="h-4 w-4"/>Salvar LP</button>
       </div>
     </Modal>
   );
@@ -1087,8 +1043,8 @@ export function AceleraiPlatform(){
           {sideView==="landingpages"&&<LandingPagesView lps={lps} campaigns={campaigns} onAddLP={()=>setShowNewLP(true)} onEditLP={lp=>setShowEditLP(lp)}/>}
           {sideView==="kanban"&&<>
             {viewMode==="list"?<ListView campaigns={filtered} lps={lps} onSelect={c=>{setSelected(c);setViewMode("kanban");}}/>:
-            <div className="flex flex-1 min-w-0 overflow-x-auto p-5 gap-4 bg-slate-50">
-              {STAGES.map(stage=>{const cols=filtered.filter(c=>c.stage===stage.id);return<div key={stage.id} className="flex shrink-0 w-[270px] flex-col gap-3">
+            <div className="flex flex-1 min-w-0 overflow-x-auto p-5 gap-4 bg-slate-50" style={{scrollbarWidth:"none",msOverflowStyle:"none"}}>
+              {STAGES.map(stage=>{const cols=filtered.filter(c=>c.stage===stage.id);return<div key={stage.id} className="flex shrink-0 w-[310px] flex-col gap-3">
                 <div className="flex items-center justify-between px-1"><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${stage.dot}`}/><span className="text-sm font-semibold text-slate-600">{stage.label}</span><span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-slate-200 px-1.5 text-[11px] font-semibold text-slate-500">{cols.length}</span></div><button className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-all"><Plus className="h-3.5 w-3.5"/></button></div>
                 <div className="flex flex-col gap-2.5">{cols.map(c=><CampaignCard key={c.id} c={c} onClick={()=>setSelected(c)} lp={lps.find(l=>l.id===c.landingPageId)}/>)}{cols.length===0&&<div className="flex h-20 items-center justify-center rounded-2xl border border-dashed border-slate-200 text-xs text-slate-300">Sem campanhas</div>}</div>
               </div>;})}
