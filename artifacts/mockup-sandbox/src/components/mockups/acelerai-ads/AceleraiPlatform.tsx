@@ -275,11 +275,12 @@ function Modal({onClose,children,wide=false}:{onClose:()=>void;children:React.Re
 
 // ─── NEW CAMPAIGN MODAL ───────────────────────────────────────────────────────
 interface WD{
-  productSlug:string; objectiveSlug:string; campaignSlug:string;
-  period:string; budget:string; priority:Priority; dueDate:string;
-  responsible:string[];
+  canal:string;platform:string;productSlug:string;objectiveSlug:string;
+  campaignSlug:string;period:string;publicoSlug:string;formato:string;quantidade:number;
+  budget:string;priority:Priority;dueDate:string;responsible:string[];landingPageId:string;
+  briefingObjetivo:string;briefingPublico:string;briefingProposta:string;briefingTom:string;briefingRefs:string;briefingCriativos:string;
 }
-const WSTEPS=["Campanha","Equipe"];
+const WSTEPS=["Configurar","Equipe","Briefing","LP & Nomes","Revisão"];
 
 function InpText({label,value,onChange,placeholder,mono=false}:{label:string;value:string;onChange:(v:string)=>void;placeholder?:string;mono?:boolean}){
   return<div className="flex flex-col gap-1.5">
@@ -289,26 +290,29 @@ function InpText({label,value,onChange,placeholder,mono=false}:{label:string;val
   </div>;
 }
 
-function NewCampaignModal({onClose,onSave}:{onClose:()=>void;onSave:(c:Campaign)=>void}){
+function NewCampaignModal({onClose,onSave,lps}:{onClose:()=>void;onSave:(c:Campaign)=>void;lps:LandingPage[]}){
   const[step,setStep]=useState(0);
-  const[d,setD]=useState<WD>({productSlug:"",objectiveSlug:"",campaignSlug:"",period:"",budget:"",priority:"medium",dueDate:"",responsible:[]});
-  const u=(k:keyof WD)=>(v:string)=>setD(p=>({...p,[k]:v}));
+  const[d,setD]=useState<WD>({canal:"pago",platform:"facebook",productSlug:"",objectiveSlug:"",campaignSlug:"",period:"",publicoSlug:"",formato:"",quantidade:4,budget:"",priority:"medium",dueDate:"",responsible:[],landingPageId:"",briefingObjetivo:"",briefingPublico:"",briefingProposta:"",briefingTom:"",briefingRefs:"",briefingCriativos:""});
+  const u=(k:keyof WD)=>(v:string|number)=>setD(p=>({...p,[k]:v}));
   const productLabel=PRODUCTS_LIST.find(x=>x.slug===d.productSlug)?.label||"";
   const objectiveLabel=OBJECTIVES_LIST.find(x=>x.slug===d.objectiveSlug)?.label||"";
-  const previewName=d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period?`${d.productSlug}_${d.objectiveSlug}_${d.campaignSlug}_${d.period}`:"";
-  const canNext=[!!(d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period&&d.budget),!!(d.responsible.length>0&&d.dueDate)][step];
+  const slugVal=toSlug(d.campaignSlug);
+  const canGenerate=!!(d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period&&d.publicoSlug);
+  const nomes=canGenerate?genNomes(d.productSlug,d.objectiveSlug,slugVal,d.period,d.publicoSlug,d.quantidade):null;
+  const utmMedium=getUtmMedium(d.platform,d.canal);
+  const canNext=[!!(d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period&&d.budget&&d.platform),!!(d.responsible.length>0&&d.dueDate),!!(d.briefingObjetivo&&d.briefingPublico),true,true][step];
   const toggleR=(id:string)=>setD(p=>({...p,responsible:p.responsible.includes(id)?p.responsible.filter(r=>r!==id):[...p.responsible,id]}));
   const create=()=>{
+    const names=nomes||{campaignName:"",adSetName:"",adNames:[]};
     const prod=PRODUCTS_LIST.find(x=>x.slug===d.productSlug);
     const obj=OBJECTIVES_LIST.find(x=>x.slug===d.objectiveSlug);
-    const cs=CAMPAIGN_SLUGS.find(x=>x.slug===d.campaignSlug);
-    onSave({id:`c${Date.now()}`,title:`${prod?.label||d.productSlug} – ${cs?.label||d.campaignSlug}`,product:prod?.label||d.productSlug,objective:obj?.label||d.objectiveSlug,campaignType:d.campaignSlug,period:d.period,budget:d.budget,stage:"briefing",priority:d.priority,dueDate:d.dueDate,responsible:d.responsible.map(id=>TEAM[id]),tags:[d.productSlug],productSlug:d.productSlug,objectiveSlug:d.objectiveSlug,campaignSlug:d.campaignSlug,campaignName:"",adSetName:"",adName:"",briefingFilled:false,checklistState:{},comments:0,attachments:0,createdAt:"Agora"});
+    onSave({id:`c${Date.now()}`,title:`${prod?.label||d.productSlug} – ${d.campaignSlug}`,product:prod?.label||d.productSlug,objective:obj?.label||d.objectiveSlug,campaignType:d.campaignSlug,period:d.period,budget:d.budget,stage:"briefing",priority:d.priority,dueDate:d.dueDate,responsible:d.responsible.map(id=>TEAM[id]),tags:[d.productSlug],productSlug:d.productSlug,objectiveSlug:d.objectiveSlug,campaignSlug:slugVal,canal:d.canal,platform:d.platform,publicoSlug:d.publicoSlug,formato:d.formato,quantidade:d.quantidade,campaignName:names.campaignName,adSetName:names.adSetName,adName:names.adNames[0]||"",adNames:names.adNames,briefingFilled:!!(d.briefingObjetivo&&d.briefingPublico),briefingData:{objetivo:d.briefingObjetivo,publico:d.briefingPublico,proposta:d.briefingProposta,tom:d.briefingTom,referencias:d.briefingRefs,criativos:d.briefingCriativos},checklistState:{},comments:0,attachments:0,createdAt:"Agora",landingPageId:d.landingPageId||undefined});
     onClose();
   };
   return(
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} wide>
       <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-        <div><h2 className="text-base font-bold text-slate-900">Nova Campanha</h2><p className="text-xs text-slate-400 mt-0.5">{WSTEPS[step]} — Passo {step+1} de {WSTEPS.length}</p></div>
+        <div><h2 className="text-base font-bold text-slate-900">Nova Campanha</h2><p className="text-xs text-slate-400 mt-0.5">Passo {step+1} de {WSTEPS.length} — {WSTEPS[step]}</p></div>
         <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-all"><X className="h-4 w-4"/></button>
       </div>
       <div className="flex items-center gap-0 border-b border-slate-100 px-6 py-3">
@@ -322,48 +326,98 @@ function NewCampaignModal({onClose,onSave}:{onClose:()=>void;onSave:(c:Campaign)
         ))}
       </div>
       <div className="flex-1 overflow-y-auto p-6">
+        {/* STEP 0 — CONFIGURAR */}
         {step===0&&<div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Canal</label>
+            <div className="flex gap-2">
+              {[{v:"pago",l:"Pago (Ads)"},{v:"organico",l:"Orgânico"}].map(c=><button key={c.v} onClick={()=>u("canal")(c.v)} className={`flex-1 flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-all ${d.canal===c.v?"border-indigo-300 bg-indigo-50 text-indigo-700":"border-slate-200 text-slate-400 hover:border-slate-300"}`}>{c.v==="pago"?<Target className="h-3.5 w-3.5"/>:<BarChart3 className="h-3.5 w-3.5"/>}{c.l}</button>)}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Plataforma — <span className="font-mono normal-case text-slate-500">utm_source: {d.platform||"—"}</span></label>
+            <div className="flex flex-wrap gap-2">
+              {PLATFORMS.map(p=><button key={p.slug} onClick={()=>u("platform")(p.slug)} className={`rounded-xl border px-4 py-2 text-sm font-medium transition-all ${d.platform===p.slug?"border-indigo-300 bg-indigo-50 text-indigo-700":"border-slate-200 text-slate-500 hover:border-slate-300"}`}>{p.label}</button>)}
+            </div>
+          </div>
+          {d.platform&&<div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 flex items-center gap-2"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">utm_medium</span><span className="font-mono text-xs text-slate-600">{utmMedium}</span><span className="text-[10px] text-slate-400 ml-1">(automático)</span></div>}
           <div className="grid grid-cols-2 gap-4">
             <Sel label="Produto" opts={PRODUCTS_LIST.map(x=>x.label)} value={productLabel} onChange={v=>{const f=PRODUCTS_LIST.find(x=>x.label===v);if(f)u("productSlug")(f.slug);}}/>
             <Sel label="Objetivo" opts={OBJECTIVES_LIST.map(x=>x.label)} value={objectiveLabel} onChange={v=>{const f=OBJECTIVES_LIST.find(x=>x.label===v);if(f)u("objectiveSlug")(f.slug);}}/>
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Tipo de Campanha</label>
-            <div className="flex flex-wrap gap-2">
-              {CAMPAIGN_SLUGS.map(cs=><button key={cs.slug} onClick={()=>u("campaignSlug")(cs.slug)} className={`rounded-xl border px-3.5 py-2 text-sm font-medium transition-all ${d.campaignSlug===cs.slug?"border-indigo-300 bg-indigo-50 text-indigo-700":"border-slate-200 text-slate-500 hover:border-slate-300"}`}>{cs.label}</button>)}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Campanha (slug)</label>
+              <input value={d.campaignSlug} onChange={e=>u("campaignSlug")(e.target.value.toLowerCase().replace(/\s+/g,"_").replace(/[^\w-]/g,""))} placeholder="ex: black_friday, hexa, evergreen" className="h-10 rounded-xl border border-slate-200 bg-white px-3 font-mono text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-300 placeholder:font-sans"/>
+              {d.campaignSlug&&<p className="text-[10px] text-slate-400 font-mono">{slugVal}</p>}
             </div>
-          </div>
-          {previewName&&<div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-            <p className="text-[10px] font-semibold text-indigo-400 mb-1 uppercase tracking-widest">Pré-visualização do nome</p>
-            <p className="font-mono text-xs text-indigo-700">{previewName}_<span className="text-indigo-400">[período]</span></p>
-          </div>}
-          <div className="grid grid-cols-3 gap-3">
             <Sel label="Período" opts={PERIODOS_LIST} value={d.period} onChange={u("period")}/>
-            <InpText label="Orçamento" value={d.budget} onChange={u("budget")} placeholder="R$ 5.000"/>
-            <InpText label="Prazo" value={d.dueDate} onChange={u("dueDate")} placeholder="Nov 29"/>
           </div>
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 flex items-start gap-2">
-            <Sparkles className="h-4 w-4 text-amber-500 shrink-0 mt-0.5"/>
-            <p className="text-xs text-amber-700 leading-relaxed">Plataforma, canal, público e geração completa de nomenclaturas + UTMs são feitos no card da campanha (aba <strong>Gerador</strong>).</p>
+          <div className="grid grid-cols-2 gap-4">
+            <Sel label="Público / Audiência" opts={PUBLICOS_LIST.map(x=>x.label)} value={PUBLICOS_LIST.find(x=>x.slug===d.publicoSlug)?.label||""} onChange={v=>{const f=PUBLICOS_LIST.find(x=>x.label===v);if(f)u("publicoSlug")(f.slug);}}/>
+            <Sel label="Formato" opts={FORMATOS_LIST.map(x=>x.label)} value={FORMATOS_LIST.find(x=>x.slug===d.formato)?.label||""} onChange={v=>{const f=FORMATOS_LIST.find(x=>x.label===v);if(f)u("formato")(f.slug);}}/>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Quantidade de conteúdos — <span className="text-indigo-600 font-bold normal-case">{d.quantidade}</span></label>
+            <input type="range" min={1} max={20} value={d.quantidade} onChange={e=>u("quantidade")(Number(e.target.value))} className="w-full accent-indigo-600"/>
+            <div className="flex justify-between text-[10px] text-slate-300"><span>1</span><span>5</span><span>10</span><span>15</span><span>20</span></div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <InpText label="Orçamento" value={d.budget} onChange={v=>u("budget")(v)} placeholder="Ex: R$ 5.000"/>
+            <InpText label="Prazo" value={d.dueDate} onChange={v=>u("dueDate")(v)} placeholder="Ex: Nov 29"/>
           </div>
         </div>}
+        {/* STEP 1 — EQUIPE */}
         {step===1&&<div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Responsáveis</label>
-            <div className="grid grid-cols-2 gap-2">{ALL_MEMBERS.map(m=><button key={m.id} onClick={()=>toggleR(m.id)} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${d.responsible.includes(m.id)?"border-indigo-300 bg-indigo-50":"border-slate-200 hover:border-slate-300"}`}><Av m={m} size="md"/><span className="text-sm text-slate-700 font-medium">{m.name}</span>{d.responsible.includes(m.id)&&<Check className="ml-auto h-4 w-4 text-indigo-600"/>}</button>)}</div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Prioridade</label>
-            <div className="flex gap-2">{(["high","medium","low"] as Priority[]).map(p=>{const info=p==="high"?{l:"Alta",c:"border-red-200 bg-red-50 text-red-600"}:p==="medium"?{l:"Média",c:"border-amber-200 bg-amber-50 text-amber-600"}:{l:"Baixa",c:"border-slate-200 bg-slate-50 text-slate-500"};return<button key={p} onClick={()=>setD(dd=>({...dd,priority:p}))} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition-all ${d.priority===p?info.c:"border-slate-200 text-slate-400 hover:border-slate-300"}`}><Flag className="h-3.5 w-3.5"/>{info.l}</button>;})}
+          <div className="flex flex-col gap-2"><label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Responsáveis</label><div className="grid grid-cols-2 gap-2">{ALL_MEMBERS.map(m=><button key={m.id} onClick={()=>toggleR(m.id)} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${d.responsible.includes(m.id)?"border-indigo-300 bg-indigo-50":"border-slate-200 hover:border-slate-300"}`}><Av m={m} size="md"/><span className="text-sm text-slate-700 font-medium">{m.name}</span>{d.responsible.includes(m.id)&&<Check className="ml-auto h-4 w-4 text-indigo-600"/>}</button>)}</div></div>
+          <div className="flex flex-col gap-2"><label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Prioridade</label><div className="flex gap-2">{(["high","medium","low"] as Priority[]).map(p=>{const info=p==="high"?{l:"Alta",c:"border-red-200 bg-red-50 text-red-600"}:p==="medium"?{l:"Média",c:"border-amber-200 bg-amber-50 text-amber-600"}:{l:"Baixa",c:"border-slate-200 bg-slate-50 text-slate-500"};return<button key={p} onClick={()=>setD(dd=>({...dd,priority:p}))} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition-all ${d.priority===p?info.c:"border-slate-200 text-slate-400 hover:border-slate-300"}`}><Flag className="h-3.5 w-3.5"/>{info.l}</button>;})}
+          </div></div>
+        </div>}
+        {/* STEP 2 — BRIEFING */}
+        {step===2&&<div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2"><TA label="Objetivo da Campanha" value={d.briefingObjetivo} onChange={v=>u("briefingObjetivo")(v)} rows={2}/></div>
+          <div className="col-span-2"><TA label="Público-alvo" value={d.briefingPublico} onChange={v=>u("briefingPublico")(v)} rows={2}/></div>
+          <TA label="Proposta de Valor" value={d.briefingProposta} onChange={v=>u("briefingProposta")(v)} rows={2}/>
+          <TA label="Tom de Voz" value={d.briefingTom} onChange={v=>u("briefingTom")(v)} rows={2}/>
+          <TA label="Referências de Copy" value={d.briefingRefs} onChange={v=>u("briefingRefs")(v)} rows={2}/>
+          <TA label="Criativos Necessários" value={d.briefingCriativos} onChange={v=>u("briefingCriativos")(v)} rows={2}/>
+        </div>}
+        {/* STEP 3 — LP & NOMENCLATURA */}
+        {step===3&&<div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2"><label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Landing Page</label>
+            <div className="flex flex-col gap-2">
+              {lps.map(lp=><button key={lp.id} onClick={()=>setD(dd=>({...dd,landingPageId:dd.landingPageId===lp.id?"":lp.id}))} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${d.landingPageId===lp.id?"border-indigo-300 bg-indigo-50":"border-slate-200 hover:border-slate-300"}`}>
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${LP_STATUS[lp.status].bg}`}><Globe className={`h-4 w-4 ${LP_STATUS[lp.status].text}`}/></div>
+                <div className="flex-1 min-w-0"><p className="text-sm font-medium text-slate-700">{lp.name}</p><p className="text-xs text-slate-400 font-mono">{lp.url}</p></div>
+                <LPStatusPill status={lp.status}/>
+                {d.landingPageId===lp.id&&<Check className="h-4 w-4 text-indigo-600 shrink-0"/>}
+              </button>)}
             </div>
           </div>
+          {nomes&&<div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-emerald-600"/><span className="text-xs font-semibold text-emerald-700">Nomenclaturas geradas</span><span className="ml-auto text-[10px] text-emerald-600">{nomes.adNames.length} anúncio(s)</span></div>
+            <div><p className="text-[10px] text-emerald-600 font-semibold mb-1">CAMPANHA</p><CopyRow label="" value={nomes.campaignName}/></div>
+            <div><p className="text-[10px] text-emerald-600 font-semibold mb-1">CONJUNTO</p><CopyRow label="" value={nomes.adSetName}/></div>
+            <div><p className="text-[10px] text-emerald-600 font-semibold mb-1">ANÚNCIOS ({nomes.adNames.length})</p>
+              <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
+                {nomes.adNames.map((n,i)=><div key={i} className="flex items-center gap-2 rounded-xl border border-white bg-white px-3 py-1.5"><span className="text-[10px] text-slate-400 font-mono w-5 shrink-0">{String(i+1).padStart(2,"0")}</span><span className="flex-1 font-mono text-xs text-slate-600 truncate">{n}</span><CopyBtn value={n}/></div>)}
+              </div>
+            </div>
+          </div>}
+        </div>}
+        {/* STEP 4 — REVISÃO */}
+        {step===4&&<div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-3">
+            {[{l:"Produto",v:productLabel},{l:"Objetivo",v:objectiveLabel},{l:"Campanha (slug)",v:d.campaignSlug},{l:"Período",v:d.period},{l:"Canal",v:d.canal==="pago"?"Pago (Ads)":"Orgânico"},{l:"Plataforma",v:d.platform},{l:"Orçamento",v:d.budget},{l:"Prazo",v:d.dueDate}].map(f=><div key={f.l} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400 mb-0.5">{f.l}</p><p className="text-sm font-semibold text-slate-700">{f.v||"—"}</p></div>)}
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400 mb-2">Responsáveis</p><div className="flex gap-2">{d.responsible.map(id=><div key={id} className="flex items-center gap-1.5"><Av m={TEAM[id]} size="md"/><span className="text-xs text-slate-600">{TEAM[id].name}</span></div>)}</div></div>
+          {d.landingPageId&&(()=>{const lp=lps.find(l=>l.id===d.landingPageId);return lp&&<div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400 mb-1">Landing Page</p><div className="flex items-center gap-2"><Globe className="h-4 w-4 text-slate-400"/><span className="text-sm font-medium text-slate-700">{lp.name}</span><LPStatusPill status={lp.status}/></div></div>;})()}
+          {nomes&&<div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3"><p className="text-[10px] text-indigo-400 mb-1">Campanha · {nomes.adNames.length} anúncios</p><p className="font-mono text-xs text-slate-600 break-all">{nomes.campaignName}</p></div>}
         </div>}
       </div>
       <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
         <button onClick={()=>step>0?setStep(s=>s-1):onClose()} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-all"><ChevronLeft className="h-4 w-4"/>{step===0?"Cancelar":"Voltar"}</button>
-        {step<WSTEPS.length-1
-          ?<button disabled={!canNext} onClick={()=>setStep(s=>s+1)} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-30">Próximo<ChevronRight className="h-4 w-4"/></button>
-          :<button disabled={!canNext} onClick={create} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-30"><Zap className="h-4 w-4"/>Criar Campanha</button>}
+        {step<WSTEPS.length-1?<button disabled={!canNext} onClick={()=>setStep(s=>s+1)} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-30">Próximo<ChevronRight className="h-4 w-4"/></button>:<button onClick={create} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all"><Zap className="h-4 w-4"/>Criar Campanha</button>}
       </div>
     </Modal>
   );
@@ -1133,7 +1187,7 @@ export function AceleraiPlatform(){
         </div>
       </div>
       {/* MODALS */}
-      {showNew&&<NewCampaignModal onClose={()=>setShowNew(false)} onSave={c=>{setCampaigns(p=>[c,...p]);setSelected(c);}}/>}
+      {showNew&&<NewCampaignModal onClose={()=>setShowNew(false)} onSave={c=>{setCampaigns(p=>[c,...p]);setSelected(c);}} lps={lps}/>}
       {showEditB&&<EditBriefingModal campaign={showEditB} onClose={()=>setShowEditB(null)} onSave={b=>updCamp(showEditB.id,{briefingData:b,briefingFilled:!!(b.objetivo&&b.publico)})}/>}
       {showConnLP&&<ConnectLPModal campaign={showConnLP} lps={lps} onClose={()=>setShowConnLP(null)} onSave={lpId=>connectLP(showConnLP.id,lpId)}/>}
       {showDel&&<ConfirmModal title="Excluir campanha" message={`Excluir "${showDel.title}"? Esta ação não pode ser desfeita.`} danger confirmLabel="Excluir" onClose={()=>setShowDel(null)} onConfirm={()=>{setCampaigns(p=>p.filter(c=>c.id!==showDel.id));if(selected?.id===showDel.id)setSelected(null);}}/>}
