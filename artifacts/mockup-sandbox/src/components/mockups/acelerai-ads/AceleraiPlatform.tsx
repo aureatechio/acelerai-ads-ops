@@ -602,45 +602,130 @@ export function AceleraiPlatform(){
     return true;
   });
   const activeFCount=Object.values(filters).filter(Boolean).length;
-  const navItems:{id:SideView;icon:React.ElementType;label:string}[]=[
+  const mainNav:{id:SideView;icon:React.ElementType;label:string;badge?:number}[]=[
     {id:"dashboard",icon:BarChart3,label:"Overview"},
-    {id:"kanban",icon:Kanban,label:"Campanhas"},
-    {id:"landingpages",icon:Globe,label:"Landing Pages"},
-    {id:"settings",icon:Settings,label:"Configurações"},
+    {id:"kanban",icon:Kanban,label:"Campanhas",badge:campaigns.filter(c=>c.stage==="no-ar").length},
+    {id:"landingpages",icon:Globe,label:"Landing Pages",badge:lps.filter(l=>l.status==="no-ar").length},
   ];
+  const pageTitle:{[k in SideView]:{label:string;icon:React.ElementType}}={
+    dashboard:{label:"Overview",icon:BarChart3},
+    kanban:{label:"Campanhas",icon:Kanban},
+    landingpages:{label:"Landing Pages",icon:Globe},
+    settings:{label:"Configurações",icon:Settings},
+  };
+  const PageIcon=pageTitle[sideView].icon;
   return(
     <div className="flex h-screen bg-slate-50 font-['Inter'] text-slate-900 overflow-hidden">
       {/* SIDEBAR */}
-      <aside className="flex w-16 shrink-0 flex-col items-center border-r border-slate-200 bg-white py-4 gap-1">
-        <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 shadow-lg shadow-indigo-200"><Zap className="h-4 w-4 text-white"/></div>
-        {navItems.map(item=><button key={item.id} onClick={()=>{setSideView(item.id);if(item.id!=="kanban")setSelected(null);}} title={item.label} className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${sideView===item.id?"bg-indigo-50 text-indigo-600":"text-slate-400 hover:bg-slate-100 hover:text-slate-600"}`}><item.icon className="h-4.5 w-4.5"/></button>)}
-        <div className="mt-auto"><div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-[11px] font-bold text-white">MC</div></div>
+      <aside className="flex w-52 shrink-0 flex-col border-r border-slate-200 bg-white">
+        {/* Brand */}
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-100">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 shadow-md shadow-indigo-200/60">
+            <Zap className="h-4 w-4 text-white"/>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-900 leading-none">Aceleraí</p>
+            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Ads Operations</p>
+          </div>
+        </div>
+        {/* Main nav */}
+        <nav className="flex flex-col gap-0.5 px-3 py-3 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-300 px-2 py-1.5 mt-1 mb-0.5">Principal</p>
+          {mainNav.map(item=>(
+            <button key={item.id} onClick={()=>{setSideView(item.id);if(item.id!=="kanban")setSelected(null);}}
+              className={`group flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm text-left transition-all ${sideView===item.id?"bg-indigo-50 text-indigo-700 font-semibold":"text-slate-500 hover:bg-slate-100 hover:text-slate-800 font-medium"}`}>
+              <item.icon className={`h-4 w-4 shrink-0 transition-colors ${sideView===item.id?"text-indigo-600":"text-slate-400 group-hover:text-slate-600"}`}/>
+              <span className="flex-1">{item.label}</span>
+              {item.badge!=null&&item.badge>0&&(
+                <span className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${sideView===item.id?"bg-indigo-600 text-white":"bg-slate-200 text-slate-500"}`}>{item.badge}</span>
+              )}
+            </button>
+          ))}
+          <div className="my-2 border-t border-slate-100"/>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-300 px-2 py-1.5 mb-0.5">Sistema</p>
+          <button onClick={()=>{setSideView("settings");setSelected(null);}}
+            className={`group flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm text-left transition-all ${sideView==="settings"?"bg-indigo-50 text-indigo-700 font-semibold":"text-slate-500 hover:bg-slate-100 hover:text-slate-800 font-medium"}`}>
+            <Settings className={`h-4 w-4 shrink-0 transition-colors ${sideView==="settings"?"text-indigo-600":"text-slate-400 group-hover:text-slate-600"}`}/>
+            <span className="flex-1">Configurações</span>
+          </button>
+        </nav>
+        {/* User profile */}
+        <div className="border-t border-slate-100 px-3 py-3">
+          <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-slate-100 cursor-pointer transition-all">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-[11px] font-bold text-white">MC</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-slate-700 leading-none">Marina Costa</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Ads Manager</p>
+            </div>
+            <MoreHorizontal className="h-3.5 w-3.5 text-slate-300 shrink-0"/>
+          </div>
+        </div>
       </aside>
       {/* MAIN */}
       <div className="flex flex-1 min-w-0 flex-col">
         {/* TOPBAR */}
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3 shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-slate-900">Aceleraí <span className="font-normal text-slate-400">Ads Ops</span></span>
-            <Separator orientation="vertical" className="h-4 bg-slate-200"/>
-            <span className="text-sm text-slate-400">{sideView==="dashboard"?"Overview":sideView==="settings"?"Configurações":sideView==="landingpages"?"Landing Pages":"Campanhas"}</span>
+        <header className="flex items-center gap-4 border-b border-slate-200 bg-white px-5 shrink-0" style={{minHeight:"56px"}}>
+          {/* Left: page title + sub-nav tabs for kanban */}
+          <div className="flex items-center gap-3 flex-1 min-w-0 h-full">
+            <div className="flex items-center gap-2">
+              <PageIcon className="h-4 w-4 text-slate-400 shrink-0"/>
+              <span className="text-sm font-bold text-slate-900">{pageTitle[sideView].label}</span>
+            </div>
+            {sideView==="kanban"&&(
+              <>
+                <Separator orientation="vertical" className="h-5 bg-slate-200 mx-1"/>
+                <div className="flex items-center h-full">
+                  {([{id:"kanban",icon:Kanban,label:"Quadro"},{id:"list",icon:LayoutList,label:"Lista"}] as const).map(v=>(
+                    <button key={v.id} onClick={()=>setViewMode(v.id as "kanban"|"list")}
+                      className={`flex items-center gap-1.5 px-3 h-full text-xs font-medium border-b-2 transition-all ${viewMode===v.id?"border-indigo-500 text-indigo-600":"border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"}`}>
+                      <v.icon className="h-3.5 w-3.5"/>{v.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            {sideView==="landingpages"&&(
+              <>
+                <Separator orientation="vertical" className="h-5 bg-slate-200 mx-1"/>
+                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <span className="font-medium text-emerald-600">{lps.filter(l=>l.status==="no-ar").length} no ar</span>
+                  <span>·</span>
+                  <span>{lps.filter(l=>l.status==="em-teste").length} em teste</span>
+                  <span>·</span>
+                  <span>{lps.filter(l=>l.status==="pausada").length} pausada(s)</span>
+                </div>
+              </>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            {(sideView==="kanban"||sideView==="dashboard")&&<>
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <Search className="h-3.5 w-3.5 text-slate-400"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar…" className="bg-transparent text-sm text-slate-700 placeholder:text-slate-300 outline-none w-36"/>{search&&<button onClick={()=>setSearch("")}><X className="h-3 w-3 text-slate-400 hover:text-slate-600"/></button>}
-              </div>
-              <div className="relative">
-                <button onClick={()=>{setShowFilter(f=>!f);setShowNotif(false);}} className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs transition-all ${activeFCount>0?"border-indigo-300 bg-indigo-50 text-indigo-600":"border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"}`}><Filter className="h-3.5 w-3.5"/>Filtrar{activeFCount>0&&<span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-bold text-white">{activeFCount}</span>}</button>
-                {showFilter&&<FilterPanel f={filters} onChange={(k,v)=>setFilters(p=>({...p,[k]:v}))} onClose={()=>setShowFilter(false)} onClear={()=>setFilters({stage:"",product:"",priority:"",responsible:""})}/>}
-              </div>
-              {sideView==="kanban"&&<div className="flex items-center rounded-xl border border-slate-200 overflow-hidden">
-                {([{id:"kanban",icon:Kanban},{id:"list",icon:LayoutList}] as const).map(v=><button key={v.id} onClick={()=>setViewMode(v.id as "kanban"|"list")} className={`flex items-center justify-center px-3 py-2 transition-all ${viewMode===v.id?"bg-indigo-50 text-indigo-600":"text-slate-400 hover:text-slate-600"}`}><v.icon className="h-4 w-4"/></button>)}
-              </div>}
-            </>}
-            <button onClick={()=>setShowNew(true)} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all"><Plus className="h-3.5 w-3.5"/>Nova Campanha</button>
+          {/* Right: actions */}
+          <div className="flex items-center gap-2 shrink-0">
+            {(sideView==="kanban"||sideView==="dashboard")&&(
+              <>
+                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <Search className="h-3.5 w-3.5 text-slate-400 shrink-0"/>
+                  <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar campanha…" className="bg-transparent text-sm text-slate-700 placeholder:text-slate-300 outline-none w-40"/>
+                  {search&&<button onClick={()=>setSearch("")}><X className="h-3 w-3 text-slate-400 hover:text-slate-600"/></button>}
+                </div>
+                <div className="relative">
+                  <button onClick={()=>{setShowFilter(f=>!f);setShowNotif(false);}}
+                    className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-all ${activeFCount>0?"border-indigo-300 bg-indigo-50 text-indigo-600":"border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"}`}>
+                    <Filter className="h-3.5 w-3.5"/>
+                    Filtrar
+                    {activeFCount>0&&<span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-bold text-white">{activeFCount}</span>}
+                  </button>
+                  {showFilter&&<FilterPanel f={filters} onChange={(k,v)=>setFilters(p=>({...p,[k]:v}))} onClose={()=>setShowFilter(false)} onClear={()=>setFilters({stage:"",product:"",priority:"",responsible:""})}/>}
+                </div>
+              </>
+            )}
+            <Separator orientation="vertical" className="h-5 bg-slate-200"/>
+            <button onClick={()=>setShowNew(true)} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all">
+              <Plus className="h-3.5 w-3.5"/>Nova Campanha
+            </button>
             <div className="relative">
-              <button onClick={()=>{setShowNotif(n=>!n);setShowFilter(false);}} className="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all"><Bell className="h-4 w-4"/>{unread>0&&<span className="absolute top-1 right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-bold text-white">{unread}</span>}</button>
+              <button onClick={()=>{setShowNotif(n=>!n);setShowFilter(false);}} className="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all">
+                <Bell className="h-4 w-4"/>
+                {unread>0&&<span className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-bold text-white">{unread}</span>}
+              </button>
               {showNotif&&<NotifPanel items={notifs} onClose={()=>setShowNotif(false)} onMarkAll={()=>setNotifs(p=>p.map(n=>({...n,read:true})))}/>}
             </div>
           </div>
