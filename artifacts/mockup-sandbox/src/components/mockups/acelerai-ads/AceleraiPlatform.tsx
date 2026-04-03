@@ -441,6 +441,146 @@ function DetailPanel({c,onClose,onStageChange,onDeleteRequest,onArchiveRequest,o
   </div>;
 }
 
+// ─── NEW / EDIT LP MODAL ──────────────────────────────────────────────────────
+interface LPFormData { name:string; url:string; status:LPStatus; description:string; }
+
+function LPModal({initial,onClose,onSave,title}:{initial?:Partial<LPFormData>;onClose:()=>void;onSave:(d:LPFormData)=>void;title:string}){
+  const[step,setStep]=useState(0);
+  const[d,setD]=useState<LPFormData>({name:initial?.name||"",url:initial?.url||"",status:initial?.status||"rascunho",description:initial?.description||""});
+  const u=(k:keyof LPFormData)=>(v:string)=>setD(p=>({...p,[k]:v}));
+  const exampleCampaign="ACELERAI_CAPTACAO-DE-LEADS_BLACK-FRIDAY_Q4-2026";
+  const exampleUrl=d.url?`https://${d.url}?utm_source=meta&utm_medium=cpc&utm_campaign=${exampleCampaign.toLowerCase()}&utm_content=${exampleCampaign.toLowerCase()}_cold-lookalike_video-30s`:"";
+  const canNext=d.name&&d.url;
+  const ST_OPTS:[LPStatus,string,string][]=[
+    ["rascunho","Rascunho","Em construção ou sem tráfego ainda."],
+    ["em-teste","Em Teste","Teste A/B ou validação em andamento."],
+    ["no-ar","No Ar","Recebendo tráfego ativo de campanhas."],
+    ["pausada","Pausada","Tráfego interrompido temporariamente."],
+  ];
+  return(
+    <Modal onClose={onClose} wide>
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+        <div>
+          <h2 className="text-base font-bold text-slate-900">{title}</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Passo {step+1} de 2 — {step===0?"Detalhes da LP":"Revisar & Salvar"}</p>
+        </div>
+        <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-all"><X className="h-4 w-4"/></button>
+      </div>
+      {/* Step indicator */}
+      <div className="flex items-center gap-0 border-b border-slate-100 px-6 py-3">
+        {["Detalhes","Revisão"].map((s,i)=>(
+          <div key={s} className="flex items-center gap-0">
+            <button onClick={()=>i<step&&setStep(i)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${i===step?"bg-indigo-50 text-indigo-600":i<step?"text-slate-500 hover:text-slate-700":"text-slate-300"}`}>
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${i===step?"bg-indigo-600 text-white":i<step?"bg-emerald-500 text-white":"bg-slate-200 text-slate-400"}`}>{i<step?<Check className="h-2.5 w-2.5"/>:i+1}</span>{s}
+            </button>
+            {i<1&&<ChevronRight className="h-3.5 w-3.5 text-slate-200 mx-0.5"/>}
+          </div>
+        ))}
+      </div>
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {step===0&&(
+          <div className="flex flex-col gap-5">
+            {/* Name */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Nome da LP <span className="text-red-400">*</span></label>
+              <input value={d.name} onChange={e=>u("name")(e.target.value)} placeholder="Ex: LP Principal – Aceleraí"
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-300"/>
+              <p className="text-[10px] text-slate-400">Nome interno para identificação no sistema.</p>
+            </div>
+            {/* URL */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">URL da LP <span className="text-red-400">*</span></label>
+              <div className="flex items-center gap-0 rounded-xl border border-slate-200 bg-white overflow-hidden focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+                <span className="flex items-center px-3 h-10 text-sm text-slate-400 bg-slate-50 border-r border-slate-200 shrink-0 select-none">https://</span>
+                <input value={d.url} onChange={e=>u("url")(e.target.value)} placeholder="acelerai.com.br/lp"
+                  className="flex-1 h-10 px-3 text-sm text-slate-800 outline-none bg-transparent placeholder:text-slate-300"/>
+              </div>
+              {d.url&&<p className="text-[10px] text-indigo-500 font-mono">https://{d.url}</p>}
+            </div>
+            {/* Status */}
+            <div className="flex flex-col gap-2">
+              <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Status inicial</label>
+              <div className="grid grid-cols-2 gap-2">
+                {ST_OPTS.map(([val,label,desc])=>{const st=LP_STATUS[val];return(
+                  <button key={val} onClick={()=>setD(dd=>({...dd,status:val}))} className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${d.status===val?`${st.bg} border-current`:"border-slate-200 hover:border-slate-300"}`}>
+                    <span className={`mt-0.5 h-4 w-4 shrink-0 flex items-center justify-center rounded-full border-2 transition-all ${d.status===val?"border-current bg-current":""}`}>
+                      {d.status===val&&<Check className="h-2.5 w-2.5 text-white" strokeWidth={3}/>}
+                    </span>
+                    <div><p className={`text-xs font-semibold ${d.status===val?st.text:"text-slate-600"}`}>{label}</p><p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{desc}</p></div>
+                  </button>
+                );})}
+              </div>
+            </div>
+            {/* Description */}
+            <TA label="Descrição" value={d.description} onChange={u("description")} rows={2}/>
+          </div>
+        )}
+        {step===1&&(
+          <div className="flex flex-col gap-5">
+            {/* Summary card */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 flex flex-col gap-4">
+              <div className="flex items-start gap-4">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${LP_STATUS[d.status].bg}`}><Globe className={`h-5 w-5 ${LP_STATUS[d.status].text}`}/></div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap"><h3 className="text-sm font-bold text-slate-900">{d.name||"—"}</h3><LPStatusPill status={d.status}/></div>
+                  <p className="font-mono text-xs text-slate-500 mt-0.5">https://{d.url||"—"}</p>
+                  {d.description&&<p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{d.description}</p>}
+                </div>
+              </div>
+            </div>
+            {/* UTM preview */}
+            {d.url&&(
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4 text-indigo-500"/>
+                  <p className="text-sm font-semibold text-slate-700">Prévia de URL com UTM</p>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed">Quando uma campanha for conectada a esta LP, as URLs serão geradas automaticamente neste formato:</p>
+                <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {[{k:"utm_source",v:"meta"},{k:"utm_medium",v:"cpc"},{k:"utm_campaign",v:"{{campaign.name}}"},{k:"utm_content",v:"{{ad.name}}"}].map(p=>(
+                      <div key={p.k} className="rounded-lg border border-slate-200 bg-white p-2.5">
+                        <p className="text-[10px] text-slate-400 mb-0.5">{p.k}</p>
+                        <p className="font-mono text-xs text-slate-600">{p.v}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 flex flex-col gap-1.5">
+                    <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-widest">Exemplo de URL completa</p>
+                    <p className="font-mono text-[10px] text-slate-600 break-all leading-relaxed">{exampleUrl}</p>
+                    <CopyBtn value={exampleUrl}/>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 flex items-start gap-2">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5"/>
+                  <p className="text-xs text-amber-600 leading-relaxed">Após criar a LP, conecte-a a uma campanha na aba <span className="font-semibold">Campanhas</span> para gerar e copiar as URLs com UTM personalizadas.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {/* Footer */}
+      <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+        <button onClick={()=>step>0?setStep(s=>s-1):onClose()} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-all">
+          <ChevronLeft className="h-4 w-4"/>{step===0?"Cancelar":"Voltar"}
+        </button>
+        {step<1?(
+          <button disabled={!canNext} onClick={()=>setStep(1)} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-30">
+            Próximo<ChevronRight className="h-4 w-4"/>
+          </button>
+        ):(
+          <button onClick={()=>{onSave(d);onClose();}} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all">
+            <Globe className="h-4 w-4"/>Salvar Landing Page
+          </button>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 // ─── LANDING PAGES VIEW ───────────────────────────────────────────────────────
 function LandingPagesView({lps,campaigns,onAddLP,onEditLP}:{lps:LandingPage[];campaigns:Campaign[];onAddLP:()=>void;onEditLP:(lp:LandingPage)=>void}){
   const[selectedLP,setSelectedLP]=useState<LandingPage|null>(null);
@@ -586,6 +726,8 @@ export function AceleraiPlatform(){
   const[showNotif,setShowNotif]=useState(false);
   const[showFilter,setShowFilter]=useState(false);
   const[showConnLP,setShowConnLP]=useState<Campaign|null>(null);
+  const[showNewLP,setShowNewLP]=useState(false);
+  const[showEditLP,setShowEditLP]=useState<LandingPage|null>(null);
   const unread=notifs.filter(n=>!n.read).length;
   const updCamp=(id:string,p:Partial<Campaign>)=>{setCampaigns(c=>c.map(x=>x.id===id?{...x,...p}:x));if(selected?.id===id)setSelected(x=>x?{...x,...p}:x);};
   const connectLP=(campaignId:string,lpId:string)=>{
@@ -734,7 +876,7 @@ export function AceleraiPlatform(){
         <div className="flex flex-1 min-h-0">
           {sideView==="dashboard"&&<DashboardView campaigns={campaigns} lps={lps}/>}
           {sideView==="settings"&&<SettingsView/>}
-          {sideView==="landingpages"&&<LandingPagesView lps={lps} campaigns={campaigns} onAddLP={()=>{}} onEditLP={()=>{}}/>}
+          {sideView==="landingpages"&&<LandingPagesView lps={lps} campaigns={campaigns} onAddLP={()=>setShowNewLP(true)} onEditLP={lp=>setShowEditLP(lp)}/>}
           {sideView==="kanban"&&<>
             {viewMode==="list"?<ListView campaigns={filtered} lps={lps} onSelect={c=>{setSelected(c);setViewMode("kanban");}}/>:
             <div className="flex flex-1 min-w-0 overflow-x-auto p-5 gap-4 bg-slate-50">
@@ -753,6 +895,8 @@ export function AceleraiPlatform(){
       {showConnLP&&<ConnectLPModal campaign={showConnLP} lps={lps} onClose={()=>setShowConnLP(null)} onSave={lpId=>connectLP(showConnLP.id,lpId)}/>}
       {showDel&&<ConfirmModal title="Excluir campanha" message={`Excluir "${showDel.title}"? Esta ação não pode ser desfeita.`} danger confirmLabel="Excluir" onClose={()=>setShowDel(null)} onConfirm={()=>{setCampaigns(p=>p.filter(c=>c.id!==showDel.id));if(selected?.id===showDel.id)setSelected(null);}}/>}
       {showArc&&<ConfirmModal title="Arquivar campanha" message={`Arquivar "${showArc.title}"? Ela sairá do Kanban mas ficará no histórico.`} confirmLabel="Arquivar" onClose={()=>setShowArc(null)} onConfirm={()=>updCamp(showArc.id,{stage:"encerrado"})}/>}
+      {showNewLP&&<LPModal title="Nova Landing Page" onClose={()=>setShowNewLP(false)} onSave={fd=>{const newLP:LandingPage={id:`lp${Date.now()}`,name:fd.name,url:fd.url,status:fd.status,description:fd.description,connectedCampaigns:[],visits:0,conversions:0,convRate:0,lastUpdated:"Agora"};setLps(p=>[newLP,...p]);}}/>}
+      {showEditLP&&<LPModal title="Editar Landing Page" initial={{name:showEditLP.name,url:showEditLP.url,status:showEditLP.status,description:showEditLP.description}} onClose={()=>setShowEditLP(null)} onSave={fd=>{setLps(p=>p.map(l=>l.id===showEditLP.id?{...l,...fd}:l));}}/>}
     </div>
   );
 }
