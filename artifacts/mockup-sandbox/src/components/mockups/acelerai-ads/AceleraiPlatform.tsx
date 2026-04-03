@@ -14,13 +14,14 @@ import { Separator } from "@/components/ui/separator";
 type Stage = "briefing"|"criacao"|"revisao"|"aprovado"|"no-ar"|"pausado"|"encerrado";
 type Priority = "high"|"medium"|"low";
 type SideView = "dashboard"|"kanban"|"landingpages"|"settings";
-type DetailTab = "briefing"|"nomenclatura"|"utms"|"checklist"|"criativos";
+type DetailTab = "briefing"|"gerador"|"checklist"|"criativos";
 type LPStatus = "no-ar"|"em-teste"|"pausada"|"rascunho";
 
 interface TeamMember { id:string; name:string; initials:string; color:string; }
 interface Briefing { objetivo:string; publico:string; proposta:string; tom:string; referencias:string; criativos:string; }
 interface LandingPage {
   id:string; name:string; url:string; status:LPStatus;
+  slug:string; productSlug:string; lpIdentifier:string;
   connectedCampaigns:string[]; visits:number; conversions:number;
   convRate:number; lastUpdated:string; description:string;
 }
@@ -118,6 +119,22 @@ const FORMATOS_LIST = [
   {slug:"email",label:"E-mail"},
   {slug:"msg",label:"Msg/WhatsApp"},
 ];
+const CAMPAIGN_SLUGS = [
+  {slug:"black_friday",label:"Black Friday"},
+  {slug:"lancamento",label:"Lançamento"},
+  {slug:"evergreen",label:"Evergreen"},
+  {slug:"hexa",label:"Hexa"},
+  {slug:"quiz",label:"Quiz"},
+  {slug:"webinar",label:"Webinar"},
+  {slug:"oferta_relampago",label:"Oferta Relâmpago"},
+  {slug:"novembro",label:"Novembro"},
+  {slug:"retargeting",label:"Retargeting"},
+  {slug:"abandono_carrinho",label:"Abandono de Carrinho"},
+  {slug:"awareness",label:"Awareness"},
+  {slug:"branding",label:"Branding"},
+  {slug:"reativacao",label:"Reativação"},
+  {slug:"upsell",label:"Upsell"},
+];
 
 function toSlug(v:string){
   return v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_").replace(/[^\w-]/g,"").replace(/_+/g,"_");
@@ -155,11 +172,11 @@ const CHECKLIST_ITEMS = [
 ];
 
 const INIT_LPS:LandingPage[] = [
-  {id:"lp1",name:"LP Principal – Aceleraí",url:"acelerai.com.br/lp",status:"no-ar",connectedCampaigns:["c1","c4"],visits:12840,conversions:1027,convRate:8.0,lastUpdated:"Hoje",description:"Página principal de captação para o produto Aceleraí."},
-  {id:"lp2",name:"LP Mentoria Elite",url:"acelerai.com.br/mentoria",status:"no-ar",connectedCampaigns:["c2"],visits:5320,conversions:238,convRate:4.5,lastUpdated:"Ontem",description:"LP exclusiva para a Mentoria Elite — foco em conversão de leads quentes."},
-  {id:"lp3",name:"LP Lançamento Q3",url:"acelerai.com.br/lancamento",status:"em-teste",connectedCampaigns:["c3"],visits:890,conversions:0,convRate:0,lastUpdated:"2 dias atrás",description:"LP de lançamento para testes A/B com variação de headline."},
-  {id:"lp4",name:"LP Black Friday 2026",url:"acelerai.com.br/bf2026",status:"rascunho",connectedCampaigns:[],visits:0,conversions:0,convRate:0,lastUpdated:"3 dias atrás",description:"Em desenvolvimento para a campanha de Black Friday."},
-  {id:"lp5",name:"LP Imersão Intensiva",url:"acelerai.com.br/imersao",status:"pausada",connectedCampaigns:["c5"],visits:2140,conversions:94,convRate:4.4,lastUpdated:"5 dias atrás",description:"Pausada até confirmação de data de nova turma."},
+  {id:"lp1",name:"LP Principal – Aceleraí",url:"acelerai.com.br/lp",status:"no-ar",slug:"lp_acelerai_captacao_main",productSlug:"acelerai",lpIdentifier:"main",connectedCampaigns:["c1","c4"],visits:12840,conversions:1027,convRate:8.0,lastUpdated:"Hoje",description:"Página principal de captação para o produto Aceleraí."},
+  {id:"lp2",name:"LP Mentoria Elite",url:"acelerai.com.br/mentoria",status:"no-ar",slug:"lp_mentoria_conversao_elite",productSlug:"mentoria",lpIdentifier:"elite",connectedCampaigns:["c2"],visits:5320,conversions:238,convRate:4.5,lastUpdated:"Ontem",description:"LP exclusiva para a Mentoria Elite — foco em conversão de leads quentes."},
+  {id:"lp3",name:"LP Lançamento Q3",url:"acelerai.com.br/lancamento",status:"em-teste",slug:"lp_acelerai_conversao_lancamento_q3",productSlug:"acelerai",lpIdentifier:"lancamento_q3",connectedCampaigns:["c3"],visits:890,conversions:0,convRate:0,lastUpdated:"2 dias atrás",description:"LP de lançamento para testes A/B com variação de headline."},
+  {id:"lp4",name:"LP Black Friday 2026",url:"acelerai.com.br/bf2026",status:"rascunho",slug:"lp_acelerai_captacao_bf2026",productSlug:"acelerai",lpIdentifier:"bf2026",connectedCampaigns:[],visits:0,conversions:0,convRate:0,lastUpdated:"3 dias atrás",description:"Em desenvolvimento para a campanha de Black Friday."},
+  {id:"lp5",name:"LP Imersão Intensiva",url:"acelerai.com.br/imersao",status:"pausada",slug:"lp_imersao_conversao_intensiva",productSlug:"imersao",lpIdentifier:"intensiva",connectedCampaigns:["c5"],visits:2140,conversions:94,convRate:4.4,lastUpdated:"5 dias atrás",description:"Pausada até confirmação de data de nova turma."},
 ];
 
 const INIT_CAMPAIGNS:Campaign[] = [
@@ -245,12 +262,11 @@ function Modal({onClose,children,wide=false}:{onClose:()=>void;children:React.Re
 
 // ─── NEW CAMPAIGN WIZARD ──────────────────────────────────────────────────────
 interface WD{
-  canal:string;platform:string;productSlug:string;objectiveSlug:string;
-  campaignSlug:string;period:string;publicoSlug:string;formato:string;quantidade:number;
-  budget:string;priority:Priority;dueDate:string;responsible:string[];landingPageId:string;
-  briefingObjetivo:string;briefingPublico:string;briefingProposta:string;briefingTom:string;briefingRefs:string;briefingCriativos:string;
+  productSlug:string; objectiveSlug:string; campaignSlug:string;
+  period:string; budget:string; priority:Priority; dueDate:string;
+  responsible:string[];
 }
-const WSTEPS=["Configurar","Equipe","Briefing","LP & Nomes","Revisão"];
+const WSTEPS=["Campanha","Equipe"];
 
 function InpText({label,value,onChange,placeholder,mono=false}:{label:string;value:string;onChange:(v:string)=>void;placeholder?:string;mono?:boolean}){
   return<div className="flex flex-col gap-1.5">
@@ -260,29 +276,26 @@ function InpText({label,value,onChange,placeholder,mono=false}:{label:string;val
   </div>;
 }
 
-function NewCampaignModal({onClose,onSave,lps}:{onClose:()=>void;onSave:(c:Campaign)=>void;lps:LandingPage[]}){
+function NewCampaignModal({onClose,onSave}:{onClose:()=>void;onSave:(c:Campaign)=>void}){
   const[step,setStep]=useState(0);
-  const[d,setD]=useState<WD>({canal:"pago",platform:"facebook",productSlug:"",objectiveSlug:"",campaignSlug:"",period:"",publicoSlug:"",formato:"",quantidade:4,budget:"",priority:"medium",dueDate:"",responsible:[],landingPageId:"",briefingObjetivo:"",briefingPublico:"",briefingProposta:"",briefingTom:"",briefingRefs:"",briefingCriativos:""});
-  const u=(k:keyof WD)=>(v:string|number)=>setD(p=>({...p,[k]:v}));
+  const[d,setD]=useState<WD>({productSlug:"",objectiveSlug:"",campaignSlug:"",period:"",budget:"",priority:"medium",dueDate:"",responsible:[]});
+  const u=(k:keyof WD)=>(v:string)=>setD(p=>({...p,[k]:v}));
   const productLabel=PRODUCTS_LIST.find(x=>x.slug===d.productSlug)?.label||"";
   const objectiveLabel=OBJECTIVES_LIST.find(x=>x.slug===d.objectiveSlug)?.label||"";
-  const slugVal=toSlug(d.campaignSlug);
-  const canGenerate=!!(d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period&&d.publicoSlug);
-  const nomes=canGenerate?genNomes(d.productSlug,d.objectiveSlug,slugVal,d.period,d.publicoSlug,d.quantidade):null;
-  const utmMedium=getUtmMedium(d.platform,d.canal);
-  const canNext=[d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period&&d.budget&&d.platform,d.responsible.length>0&&d.dueDate,d.briefingObjetivo&&d.briefingPublico,true,true][step];
+  const previewName=d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period?`${d.productSlug}_${d.objectiveSlug}_${d.campaignSlug}_${d.period}`:"";
+  const canNext=[!!(d.productSlug&&d.objectiveSlug&&d.campaignSlug&&d.period&&d.budget),!!(d.responsible.length>0&&d.dueDate)][step];
   const toggleR=(id:string)=>setD(p=>({...p,responsible:p.responsible.includes(id)?p.responsible.filter(r=>r!==id):[...p.responsible,id]}));
   const create=()=>{
-    const names=nomes||{campaignName:"",adSetName:"",adNames:[]};
     const prod=PRODUCTS_LIST.find(x=>x.slug===d.productSlug);
     const obj=OBJECTIVES_LIST.find(x=>x.slug===d.objectiveSlug);
-    onSave({id:`c${Date.now()}`,title:`${prod?.label||d.productSlug} – ${d.campaignSlug}`,product:prod?.label||d.productSlug,objective:obj?.label||d.objectiveSlug,campaignType:d.campaignSlug,period:d.period,budget:d.budget,stage:"briefing",priority:d.priority,dueDate:d.dueDate,responsible:d.responsible.map(id=>TEAM[id]),tags:[d.productSlug],productSlug:d.productSlug,objectiveSlug:d.objectiveSlug,campaignSlug:slugVal,canal:d.canal,platform:d.platform,publicoSlug:d.publicoSlug,formato:d.formato,quantidade:d.quantidade,campaignName:names.campaignName,adSetName:names.adSetName,adName:names.adNames[0]||"",adNames:names.adNames,briefingFilled:!!(d.briefingObjetivo&&d.briefingPublico),briefingData:{objetivo:d.briefingObjetivo,publico:d.briefingPublico,proposta:d.briefingProposta,tom:d.briefingTom,referencias:d.briefingRefs,criativos:d.briefingCriativos},checklistState:{},comments:0,attachments:0,createdAt:"Agora",landingPageId:d.landingPageId||undefined});
+    const cs=CAMPAIGN_SLUGS.find(x=>x.slug===d.campaignSlug);
+    onSave({id:`c${Date.now()}`,title:`${prod?.label||d.productSlug} – ${cs?.label||d.campaignSlug}`,product:prod?.label||d.productSlug,objective:obj?.label||d.objectiveSlug,campaignType:d.campaignSlug,period:d.period,budget:d.budget,stage:"briefing",priority:d.priority,dueDate:d.dueDate,responsible:d.responsible.map(id=>TEAM[id]),tags:[d.productSlug],productSlug:d.productSlug,objectiveSlug:d.objectiveSlug,campaignSlug:d.campaignSlug,campaignName:"",adSetName:"",adName:"",briefingFilled:false,checklistState:{},comments:0,attachments:0,createdAt:"Agora"});
     onClose();
   };
   return(
-    <Modal onClose={onClose} wide>
+    <Modal onClose={onClose}>
       <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-        <div><h2 className="text-base font-bold text-slate-900">Nova Campanha</h2><p className="text-xs text-slate-400 mt-0.5">Passo {step+1} de {WSTEPS.length} — {WSTEPS[step]}</p></div>
+        <div><h2 className="text-base font-bold text-slate-900">Nova Campanha</h2><p className="text-xs text-slate-400 mt-0.5">{WSTEPS[step]} — Passo {step+1} de {WSTEPS.length}</p></div>
         <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-all"><X className="h-4 w-4"/></button>
       </div>
       <div className="flex items-center gap-0 border-b border-slate-100 px-6 py-3">
@@ -296,106 +309,49 @@ function NewCampaignModal({onClose,onSave,lps}:{onClose:()=>void;onSave:(c:Campa
         ))}
       </div>
       <div className="flex-1 overflow-y-auto p-6">
-        {/* STEP 0 — CONFIGURAR */}
         {step===0&&<div className="flex flex-col gap-5">
-          {/* Canal */}
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Canal</label>
-            <div className="flex gap-2">
-              {[{v:"pago",l:"Pago (Ads)"},{v:"organico",l:"Orgânico"}].map(c=><button key={c.v} onClick={()=>u("canal")(c.v)} className={`flex-1 flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-all ${d.canal===c.v?"border-indigo-300 bg-indigo-50 text-indigo-700":"border-slate-200 text-slate-400 hover:border-slate-300"}`}>{c.v==="pago"?<Target className="h-3.5 w-3.5"/>:<BarChart3 className="h-3.5 w-3.5"/>}{c.l}</button>)}
-            </div>
-          </div>
-          {/* Plataforma */}
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Plataforma — <span className="font-mono normal-case text-slate-500">utm_source: {d.platform||"—"}</span></label>
-            <div className="flex flex-wrap gap-2">
-              {PLATFORMS.map(p=><button key={p.slug} onClick={()=>u("platform")(p.slug)} className={`rounded-xl border px-4 py-2 text-sm font-medium transition-all ${d.platform===p.slug?"border-indigo-300 bg-indigo-50 text-indigo-700":"border-slate-200 text-slate-500 hover:border-slate-300"}`}>{p.label}</button>)}
-            </div>
-          </div>
-          {/* utm_medium preview */}
-          {d.platform&&<div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 flex items-center gap-2"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">utm_medium</span><span className="font-mono text-xs text-slate-600">{utmMedium}</span><span className="text-[10px] text-slate-400 ml-1">(automático)</span></div>}
-          {/* Produto + Objetivo */}
           <div className="grid grid-cols-2 gap-4">
             <Sel label="Produto" opts={PRODUCTS_LIST.map(x=>x.label)} value={productLabel} onChange={v=>{const f=PRODUCTS_LIST.find(x=>x.label===v);if(f)u("productSlug")(f.slug);}}/>
             <Sel label="Objetivo" opts={OBJECTIVES_LIST.map(x=>x.label)} value={objectiveLabel} onChange={v=>{const f=OBJECTIVES_LIST.find(x=>x.label===v);if(f)u("objectiveSlug")(f.slug);}}/>
           </div>
-          {/* Campanha (slug) + Período */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Campanha (slug)</label>
-              <input value={d.campaignSlug} onChange={e=>u("campaignSlug")(e.target.value.toLowerCase().replace(/\s+/g,"_").replace(/[^\w-]/g,""))} placeholder="ex: black_friday, hexa, evergreen" className="h-10 rounded-xl border border-slate-200 bg-white px-3 font-mono text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-slate-300 placeholder:font-sans"/>
-              {d.campaignSlug&&<p className="text-[10px] text-slate-400 font-mono">{slugVal}</p>}
-            </div>
-            <Sel label="Período" opts={PERIODOS_LIST} value={d.period} onChange={u("period")}/>
-          </div>
-          {/* Público + Formato */}
-          <div className="grid grid-cols-2 gap-4">
-            <Sel label="Público / Audiência" opts={PUBLICOS_LIST.map(x=>x.label)} value={PUBLICOS_LIST.find(x=>x.slug===d.publicoSlug)?.label||""} onChange={v=>{const f=PUBLICOS_LIST.find(x=>x.label===v);if(f)u("publicoSlug")(f.slug);}}/>
-            <Sel label="Formato" opts={FORMATOS_LIST.map(x=>x.label)} value={FORMATOS_LIST.find(x=>x.slug===d.formato)?.label||""} onChange={v=>{const f=FORMATOS_LIST.find(x=>x.label===v);if(f)u("formato")(f.slug);}}/>
-          </div>
-          {/* Quantidade */}
           <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Quantidade de conteúdos — <span className="text-indigo-600 font-bold normal-case">{d.quantidade}</span></label>
-            <input type="range" min={1} max={20} value={d.quantidade} onChange={e=>u("quantidade")(Number(e.target.value))} className="w-full accent-indigo-600"/>
-            <div className="flex justify-between text-[10px] text-slate-300"><span>1</span><span>5</span><span>10</span><span>15</span><span>20</span></div>
-          </div>
-          {/* Budget + Prazo */}
-          <div className="grid grid-cols-2 gap-4">
-            <InpText label="Orçamento" value={d.budget} onChange={u("budget")} placeholder="Ex: R$ 5.000"/>
-            <InpText label="Prazo" value={d.dueDate} onChange={u("dueDate")} placeholder="Ex: Nov 29"/>
-          </div>
-        </div>}
-        {/* STEP 1 — EQUIPE */}
-        {step===1&&<div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2"><label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Responsáveis</label><div className="grid grid-cols-2 gap-2">{ALL_MEMBERS.map(m=><button key={m.id} onClick={()=>toggleR(m.id)} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${d.responsible.includes(m.id)?"border-indigo-300 bg-indigo-50":"border-slate-200 hover:border-slate-300"}`}><Av m={m} size="md"/><span className="text-sm text-slate-700 font-medium">{m.name}</span>{d.responsible.includes(m.id)&&<Check className="ml-auto h-4 w-4 text-indigo-600"/>}</button>)}</div></div>
-          <div className="flex flex-col gap-2"><label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Prioridade</label><div className="flex gap-2">{(["high","medium","low"] as Priority[]).map(p=>{const info=p==="high"?{l:"Alta",c:"border-red-200 bg-red-50 text-red-600"}:p==="medium"?{l:"Média",c:"border-amber-200 bg-amber-50 text-amber-600"}:{l:"Baixa",c:"border-slate-200 bg-slate-50 text-slate-500"};return<button key={p} onClick={()=>setD(dd=>({...dd,priority:p}))} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition-all ${d.priority===p?info.c:"border-slate-200 text-slate-400 hover:border-slate-300"}`}><Flag className="h-3.5 w-3.5"/>{info.l}</button>;})}
-          </div></div>
-        </div>}
-        {/* STEP 2 — BRIEFING */}
-        {step===2&&<div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2"><TA label="Objetivo da Campanha" value={d.briefingObjetivo} onChange={u("briefingObjetivo")} rows={2}/></div>
-          <div className="col-span-2"><TA label="Público-alvo" value={d.briefingPublico} onChange={u("briefingPublico")} rows={2}/></div>
-          <TA label="Proposta de Valor" value={d.briefingProposta} onChange={u("briefingProposta")} rows={2}/>
-          <TA label="Tom de Voz" value={d.briefingTom} onChange={u("briefingTom")} rows={2}/>
-          <TA label="Referências de Copy" value={d.briefingRefs} onChange={u("briefingRefs")} rows={2}/>
-          <TA label="Criativos Necessários" value={d.briefingCriativos} onChange={u("briefingCriativos")} rows={2}/>
-        </div>}
-        {/* STEP 3 — LP & NOMENCLATURA */}
-        {step===3&&<div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2"><label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Landing Page</label>
-            <div className="flex flex-col gap-2">
-              {lps.map(lp=><button key={lp.id} onClick={()=>setD(dd=>({...dd,landingPageId:dd.landingPageId===lp.id?"":lp.id}))} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${d.landingPageId===lp.id?"border-indigo-300 bg-indigo-50":"border-slate-200 hover:border-slate-300"}`}>
-                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${LP_STATUS[lp.status].bg}`}><Globe className={`h-4 w-4 ${LP_STATUS[lp.status].text}`}/></div>
-                <div className="flex-1 min-w-0"><p className="text-sm font-medium text-slate-700">{lp.name}</p><p className="text-xs text-slate-400 font-mono">{lp.url}</p></div>
-                <LPStatusPill status={lp.status}/>
-                {d.landingPageId===lp.id&&<Check className="h-4 w-4 text-indigo-600 shrink-0"/>}
-              </button>)}
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Tipo de Campanha</label>
+            <div className="flex flex-wrap gap-2">
+              {CAMPAIGN_SLUGS.map(cs=><button key={cs.slug} onClick={()=>u("campaignSlug")(cs.slug)} className={`rounded-xl border px-3.5 py-2 text-sm font-medium transition-all ${d.campaignSlug===cs.slug?"border-indigo-300 bg-indigo-50 text-indigo-700":"border-slate-200 text-slate-500 hover:border-slate-300"}`}>{cs.label}</button>)}
             </div>
           </div>
-          {nomes&&<div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-            <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-emerald-600"/><span className="text-xs font-semibold text-emerald-700">Nomenclaturas geradas</span><span className="ml-auto text-[10px] text-emerald-600">{nomes.adNames.length} anúncio(s)</span></div>
-            <div><p className="text-[10px] text-emerald-600 font-semibold mb-1">CAMPANHA</p><CopyRow label="" value={nomes.campaignName}/></div>
-            <div><p className="text-[10px] text-emerald-600 font-semibold mb-1">CONJUNTO</p><CopyRow label="" value={nomes.adSetName}/></div>
-            <div><p className="text-[10px] text-emerald-600 font-semibold mb-1">ANÚNCIOS ({nomes.adNames.length})</p>
-              <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
-                {nomes.adNames.map((n,i)=><div key={i} className="flex items-center gap-2 rounded-xl border border-white bg-white px-3 py-1.5"><span className="text-[10px] text-slate-400 font-mono w-5 shrink-0">{String(i+1).padStart(2,"0")}</span><span className="flex-1 font-mono text-xs text-slate-600 truncate">{n}</span><CopyBtn value={n}/></div>)}
-              </div>
-            </div>
+          {previewName&&<div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
+            <p className="text-[10px] font-semibold text-indigo-400 mb-1 uppercase tracking-widest">Pré-visualização do nome</p>
+            <p className="font-mono text-xs text-indigo-700">{previewName}_<span className="text-indigo-400">[período]</span></p>
           </div>}
-        </div>}
-        {/* STEP 4 — REVISÃO */}
-        {step===4&&<div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
-            {[{l:"Produto",v:productLabel},{l:"Objetivo",v:objectiveLabel},{l:"Campanha (slug)",v:d.campaignSlug},{l:"Período",v:d.period},{l:"Canal",v:d.canal==="pago"?"Pago (Ads)":"Orgânico"},{l:"Plataforma",v:d.platform},{l:"Orçamento",v:d.budget},{l:"Prazo",v:d.dueDate}].map(f=><div key={f.l} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400 mb-0.5">{f.l}</p><p className="text-sm font-semibold text-slate-700">{f.v||"—"}</p></div>)}
+          <div className="grid grid-cols-3 gap-3">
+            <Sel label="Período" opts={PERIODOS_LIST} value={d.period} onChange={u("period")}/>
+            <InpText label="Orçamento" value={d.budget} onChange={u("budget")} placeholder="R$ 5.000"/>
+            <InpText label="Prazo" value={d.dueDate} onChange={u("dueDate")} placeholder="Nov 29"/>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400 mb-2">Responsáveis</p><div className="flex gap-2">{d.responsible.map(id=><div key={id} className="flex items-center gap-1.5"><Av m={TEAM[id]} size="md"/><span className="text-xs text-slate-600">{TEAM[id].name}</span></div>)}</div></div>
-          {d.landingPageId&&(()=>{const lp=lps.find(l=>l.id===d.landingPageId);return lp&&<div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400 mb-1">Landing Page</p><div className="flex items-center gap-2"><Globe className="h-4 w-4 text-slate-400"/><span className="text-sm font-medium text-slate-700">{lp.name}</span><LPStatusPill status={lp.status}/></div></div>;})()}
-          {nomes&&<div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3"><p className="text-[10px] text-indigo-400 mb-1">Campanha · {nomes.adNames.length} anúncios</p><p className="font-mono text-xs text-slate-600 break-all">{nomes.campaignName}</p></div>}
+          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 flex items-start gap-2">
+            <Sparkles className="h-4 w-4 text-amber-500 shrink-0 mt-0.5"/>
+            <p className="text-xs text-amber-700 leading-relaxed">Plataforma, canal, público e geração completa de nomenclaturas + UTMs são feitos no card da campanha (aba <strong>Gerador</strong>).</p>
+          </div>
+        </div>}
+        {step===1&&<div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Responsáveis</label>
+            <div className="grid grid-cols-2 gap-2">{ALL_MEMBERS.map(m=><button key={m.id} onClick={()=>toggleR(m.id)} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${d.responsible.includes(m.id)?"border-indigo-300 bg-indigo-50":"border-slate-200 hover:border-slate-300"}`}><Av m={m} size="md"/><span className="text-sm text-slate-700 font-medium">{m.name}</span>{d.responsible.includes(m.id)&&<Check className="ml-auto h-4 w-4 text-indigo-600"/>}</button>)}</div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Prioridade</label>
+            <div className="flex gap-2">{(["high","medium","low"] as Priority[]).map(p=>{const info=p==="high"?{l:"Alta",c:"border-red-200 bg-red-50 text-red-600"}:p==="medium"?{l:"Média",c:"border-amber-200 bg-amber-50 text-amber-600"}:{l:"Baixa",c:"border-slate-200 bg-slate-50 text-slate-500"};return<button key={p} onClick={()=>setD(dd=>({...dd,priority:p}))} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition-all ${d.priority===p?info.c:"border-slate-200 text-slate-400 hover:border-slate-300"}`}><Flag className="h-3.5 w-3.5"/>{info.l}</button>;})}
+            </div>
+          </div>
+          <InpText label="Prazo final" value={d.dueDate} onChange={u("dueDate")} placeholder="Ex: Nov 29"/>
         </div>}
       </div>
       <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
         <button onClick={()=>step>0?setStep(s=>s-1):onClose()} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-500 hover:border-slate-300 hover:text-slate-700 transition-all"><ChevronLeft className="h-4 w-4"/>{step===0?"Cancelar":"Voltar"}</button>
-        {step<WSTEPS.length-1?<button disabled={!canNext} onClick={()=>setStep(s=>s+1)} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-30">Próximo<ChevronRight className="h-4 w-4"/></button>:<button onClick={create} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all"><Zap className="h-4 w-4"/>Criar Campanha</button>}
+        {step<WSTEPS.length-1
+          ?<button disabled={!canNext} onClick={()=>setStep(s=>s+1)} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-30">Próximo<ChevronRight className="h-4 w-4"/></button>
+          :<button disabled={!canNext} onClick={create} className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-30"><Zap className="h-4 w-4"/>Criar Campanha</button>}
       </div>
     </Modal>
   );
@@ -497,18 +453,17 @@ function CampaignCard({c,onClick,lp}:{c:Campaign;onClick:()=>void;lp?:LandingPag
 }
 
 // ─── DETAIL PANEL ─────────────────────────────────────────────────────────────
-function DetailPanel({c,onClose,onStageChange,onDeleteRequest,onArchiveRequest,onBriefingEdit,onConnectLP,lps}:{c:Campaign;onClose:()=>void;onStageChange:(id:string,s:Stage)=>void;onDeleteRequest:()=>void;onArchiveRequest:()=>void;onBriefingEdit:()=>void;onConnectLP:()=>void;lps:LandingPage[]}){
+function DetailPanel({c,onClose,onStageChange,onDeleteRequest,onArchiveRequest,onBriefingEdit,onConnectLP,onSaveSetup,lps}:{c:Campaign;onClose:()=>void;onStageChange:(id:string,s:Stage)=>void;onDeleteRequest:()=>void;onArchiveRequest:()=>void;onBriefingEdit:()=>void;onConnectLP:()=>void;onSaveSetup:(canal:string,platform:string,publicoSlug:string,formato:string,quantidade:number,campaignName:string,adSetName:string,adName:string,adNames:string[])=>void;lps:LandingPage[]}){
   const[tab,setTab]=useState<DetailTab>("briefing");
   const[cl,setCl]=useState<Record<string,boolean>>(c.checklistState);
-  useEffect(()=>{setCl(c.checklistState);},[c.id]);
+  const[gcfg,setGcfg]=useState({canal:c.canal||"pago",platform:c.platform||"facebook",publicoSlug:c.publicoSlug||"",formato:c.formato||"",quantidade:c.quantidade||4});
+  const[generated,setGenerated]=useState(!!(c.campaignName));
+  useEffect(()=>{setCl(c.checklistState);setGcfg({canal:c.canal||"pago",platform:c.platform||"facebook",publicoSlug:c.publicoSlug||"",formato:c.formato||"",quantidade:c.quantidade||4});setGenerated(!!(c.campaignName));},[c.id]);
   const clDone=CHECKLIST_ITEMS.filter(i=>cl[i.id]).length;
   const lp=lps.find(l=>l.id===c.landingPageId);
-  const utmSource=c.platform||"facebook";
-  const utmMedium=c.canal&&c.platform?getUtmMedium(c.platform,c.canal):"paid_social";
-  const utmParams=c.campaignName?`utm_source=${utmSource}&utm_medium=${utmMedium}&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term=${c.publicoSlug||""}`:"";
-  const baseUrl=lp?`https://${lp.url}`:"https://acelerai.com.br/lp";
-  const adNamesArr=c.adNames&&c.adNames.length>0?c.adNames:[c.adName].filter(Boolean);
-  const tabs:[DetailTab,string][]=[["briefing","Briefing"],["nomenclatura","Nomenclatura"],["utms","UTMs"],["checklist",`Checklist ${clDone}/${CHECKLIST_ITEMS.length}`],["criativos","Criativos"]];
+  const gCanGenerate=!!(c.productSlug&&c.objectiveSlug&&c.campaignSlug&&c.period&&gcfg.publicoSlug);
+  const gNomes=generated&&gCanGenerate?genNomes(c.productSlug!,c.objectiveSlug!,c.campaignSlug!,c.period,gcfg.publicoSlug,gcfg.quantidade):null;
+  const tabs:[DetailTab,string][]=[["briefing","Briefing"],["gerador","Gerador"],["checklist",`Checklist ${clDone}/${CHECKLIST_ITEMS.length}`],["criativos","Criativos"]];
   return<div className="flex h-full w-[460px] shrink-0 flex-col border-l border-slate-200 bg-white">
     <div className="flex items-start justify-between p-5 pb-4 border-b border-slate-100">
       <div className="flex-1 min-w-0 pr-3">
@@ -543,54 +498,118 @@ function DetailPanel({c,onClose,onStageChange,onDeleteRequest,onArchiveRequest,o
         <div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] text-slate-400 mb-2">Responsáveis</p><div className="flex flex-wrap gap-2">{c.responsible.map(m=><div key={m.id} className="flex items-center gap-1.5"><Av m={m} size="md"/><span className="text-xs text-slate-600">{m.name}</span></div>)}</div></div>
         {c.briefingFilled&&c.briefingData?<div className="flex flex-col gap-2.5">{[{l:"Objetivo",v:c.briefingData.objetivo},{l:"Público-alvo",v:c.briefingData.publico},{l:"Proposta de Valor",v:c.briefingData.proposta},{l:"Tom de Voz",v:c.briefingData.tom},{l:"Referências de Copy",v:c.briefingData.referencias},{l:"Criativos Necessários",v:c.briefingData.criativos}].filter(f=>f.v).map(f=><div key={f.l} className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-400 mb-1">{f.l}</p><p className="text-xs text-slate-600 leading-relaxed">{f.v}</p></div>)}</div>:<div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-amber-200 bg-amber-50 p-8 text-center"><AlertCircle className="h-6 w-6 text-amber-400"/><div><p className="text-sm font-semibold text-amber-700">Briefing não preenchido</p><p className="text-xs text-amber-500 mt-1">Preencha antes de continuar.</p></div><button onClick={onBriefingEdit} className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-600 transition-all">Preencher Briefing</button></div>}
       </div>}
-      {/* NOMENCLATURA */}
-      {tab==="nomenclatura"&&<div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between"><p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Nomenclatura Padronizada</p>{c.campaignName&&<span className="text-[10px] text-slate-400">{adNamesArr.length} anúncio(s)</span>}</div>
-        {c.campaignName?<>
-          {[{l:"Campanha",v:c.campaignName,dot:"bg-indigo-500"},{l:"Conjunto de Anúncios",v:c.adSetName,dot:"bg-violet-500"}].map(r=><div key={r.l} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3"><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${r.dot}`}/><span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{r.l}</span></div><CopyRow label="" value={r.v}/></div>)}
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3">
-            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500"/><span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Anúncios ({adNamesArr.length})</span></div>
-            <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-0.5">
-              {adNamesArr.map((name,i)=><div key={i} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"><span className="text-[10px] font-semibold text-slate-400 w-5 shrink-0">{String(i+1).padStart(2,"0")}</span><span className="flex-1 font-mono text-xs text-slate-600 break-all">{name}</span><CopyBtn value={name}/></div>)}
+      {/* GERADOR */}
+      {tab==="gerador"&&<div className="flex flex-col gap-4">
+        {/* Info da campanha */}
+        {c.productSlug&&c.objectiveSlug&&c.campaignSlug&&c.period&&<div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2.5 flex items-center gap-2">
+          <BadgeCheck className="h-3.5 w-3.5 text-indigo-500 shrink-0"/>
+          <div className="flex-1 min-w-0"><p className="font-mono text-xs text-indigo-700 truncate">{c.productSlug}_{c.objectiveSlug}_{c.campaignSlug}_{c.period}</p><p className="text-[10px] text-indigo-400 mt-0.5">Nome base da campanha</p></div>
+        </div>}
+        {/* Configuração */}
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 flex flex-col gap-4">
+          <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-indigo-500"/><span className="text-xs font-semibold text-slate-700">Configurar Gerador</span></div>
+          {/* Canal */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Canal</label>
+            <div className="flex gap-2">
+              {[{v:"pago",l:"Pago (Ads)"},{v:"organico",l:"Orgânico"}].map(opt=><button key={opt.v} onClick={()=>setGcfg(x=>({...x,canal:opt.v}))} className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-medium transition-all ${gcfg.canal===opt.v?"border-indigo-300 bg-white text-indigo-700 shadow-sm":"border-slate-200 text-slate-400 hover:border-slate-300 bg-white"}`}>{opt.v==="pago"?<Target className="h-3.5 w-3.5"/>:<BarChart3 className="h-3.5 w-3.5"/>}{opt.l}</button>)}
             </div>
           </div>
-          <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 flex items-start gap-2"><BadgeCheck className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5"/><p className="text-xs text-slate-500 leading-relaxed">Padrão: <span className="font-mono text-slate-600">produto_objetivo_campanha_periodo</span>. Tudo em minúsculas, separador underscore.</p></div>
-        </>:<div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-200 p-10 text-center"><Hash className="h-8 w-8 text-slate-200"/><div><p className="text-sm font-semibold text-slate-500">Nomenclatura não gerada</p><p className="text-xs text-slate-400 mt-1">Complete o briefing para gerar os nomes.</p></div></div>}
-      </div>}
-      {/* UTMs */}
-      {tab==="utms"&&<div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between"><p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">UTM Parameters</p>{c.campaignName&&<span className="text-[10px] text-slate-400">{adNamesArr.length} URL(s)</span>}</div>
-        {lp?<div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 flex items-center gap-2"><Globe className="h-4 w-4 text-emerald-600 shrink-0"/><div className="flex-1 min-w-0"><p className="text-xs font-semibold text-emerald-700">{lp.name}</p><p className="font-mono text-[10px] text-emerald-600">{lp.url}</p></div><LPStatusPill status={lp.status}/></div>:<button onClick={onConnectLP} className="flex items-center gap-2 rounded-xl border border-dashed border-indigo-200 bg-indigo-50 px-3 py-3 text-xs text-indigo-500 hover:bg-indigo-100 transition-all w-full"><Link2 className="h-3.5 w-3.5"/>Conectar LP para gerar a URL final</button>}
-        {c.campaignName?<>
-          {/* Padrão de nomenclatura — params */}
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3">
-            <p className="text-xs font-semibold text-sky-600 flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5"/>Parâmetros Meta Ads</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[{k:"utm_source",v:utmSource},{k:"utm_medium",v:utmMedium},{k:"utm_campaign",v:"{{campaign.name}}"},{k:"utm_content",v:"{{ad.name}}"},{k:"utm_term",v:c.publicoSlug||"—"}].map(p=><div key={p.k} className="rounded-lg border border-slate-200 bg-white p-2.5"><p className="text-[10px] text-slate-400 mb-0.5">{p.k}</p><p className="font-mono text-xs text-slate-600 break-all">{p.v}</p></div>)}
+          {/* Plataforma */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Plataforma</label>
+            <div className="flex flex-wrap gap-1.5">
+              {PLATFORMS.map(p=><button key={p.slug} onClick={()=>setGcfg(x=>({...x,platform:p.slug}))} className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${gcfg.platform===p.slug?"border-indigo-300 bg-white text-indigo-700 shadow-sm":"border-slate-200 bg-white text-slate-500 hover:border-slate-300"}`}>{p.label}</button>)}
             </div>
-            <CopyRow label="Colar no campo URL Parameters do Meta Ads" value={utmParams}/>
+            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-1.5">
+              <div className="flex items-center gap-1.5"><span className="text-[10px] text-slate-400">utm_source:</span><span className="font-mono text-[10px] font-semibold text-slate-700">{gcfg.platform}</span></div>
+              <span className="text-slate-200">·</span>
+              <div className="flex items-center gap-1.5"><span className="text-[10px] text-slate-400">utm_medium:</span><span className="font-mono text-[10px] font-semibold text-slate-700">{getUtmMedium(gcfg.platform,gcfg.canal)}</span><span className="text-[10px] text-slate-300">auto</span></div>
+            </div>
           </div>
-          {/* Tabela de UTMs */}
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between"><p className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5"><LayoutList className="h-3.5 w-3.5"/>Tabela de UTMs — {adNamesArr.length} URL(s)</p></div>
-            {/* Header */}
-            <div className="grid grid-cols-[auto_1fr_auto] text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 gap-2">
-              <span>#</span><span>utm_content / URL</span><span>Copiar</span>
+          {/* Público + Formato */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Público</label>
+              <select value={gcfg.publicoSlug} onChange={e=>setGcfg(x=>({...x,publicoSlug:e.target.value}))} className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-indigo-400 appearance-none cursor-pointer">
+                <option value="" disabled>Selecione…</option>
+                {PUBLICOS_LIST.map(p=><option key={p.slug} value={p.slug}>{p.label}</option>)}
+              </select>
             </div>
-            <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-0.5">
-              {adNamesArr.map((name,i)=>{
-                const contentPart=name.split("_conteudo_")[1]?`conteudo_${name.split("_conteudo_")[1]}`:name;
-                const fullUtmUrl=`${baseUrl}?utm_source=${utmSource}&utm_medium=${utmMedium}&utm_campaign=${c.campaignName}&utm_content=${contentPart}&utm_term=${c.publicoSlug||""}`;
-                return<div key={i} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                  <span className="text-[10px] font-semibold text-slate-400 w-5">{String(i+1).padStart(2,"0")}</span>
-                  <div className="min-w-0"><p className="font-mono text-[10px] font-semibold text-indigo-600">{contentPart}</p><p className="font-mono text-[9px] text-slate-400 truncate">{fullUtmUrl}</p></div>
-                  <CopyBtn value={fullUtmUrl}/>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Formato</label>
+              <select value={gcfg.formato} onChange={e=>setGcfg(x=>({...x,formato:e.target.value}))} className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-indigo-400 appearance-none cursor-pointer">
+                <option value="" disabled>Selecione…</option>
+                {FORMATOS_LIST.map(f=><option key={f.slug} value={f.slug}>{f.label}</option>)}
+              </select>
+            </div>
+          </div>
+          {/* Quantidade */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Conteúdos — <span className="text-indigo-600 font-bold">{gcfg.quantidade} anúncio(s)</span></label>
+            <input type="range" min={1} max={20} value={gcfg.quantidade} onChange={e=>setGcfg(x=>({...x,quantidade:Number(e.target.value)}))} className="w-full accent-indigo-600"/>
+            <div className="flex justify-between text-[10px] text-slate-300"><span>1</span><span>5</span><span>10</span><span>15</span><span>20</span></div>
+          </div>
+          {/* Gerar button */}
+          {!c.productSlug&&<div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-center gap-2"><AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0"/><p className="text-xs text-amber-700">Preencha Produto, Objetivo e Tipo de Campanha no Briefing primeiro.</p></div>}
+          <button onClick={()=>{if(!gCanGenerate)return;const nomes=genNomes(c.productSlug!,c.objectiveSlug!,c.campaignSlug!,c.period,gcfg.publicoSlug,gcfg.quantidade);onSaveSetup(gcfg.canal,gcfg.platform,gcfg.publicoSlug,gcfg.formato,gcfg.quantidade,nomes.campaignName,nomes.adSetName,nomes.adNames[0]||"",nomes.adNames);setGenerated(true);}} disabled={!gCanGenerate} className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white hover:bg-indigo-700 transition-all disabled:opacity-30">
+            <Sparkles className="h-3.5 w-3.5"/>{generated?"Regenerar Nomenclaturas":"Gerar Nomenclaturas"}
+          </button>
+        </div>
+        {/* Resultados */}
+        {gNomes&&<>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600"/>
+              <span className="text-xs font-semibold text-emerald-700">Nomenclaturas geradas</span>
+              <span className="ml-auto text-[10px] text-emerald-600">{gNomes.adNames.length} anúncio(s)</span>
+              <button onClick={()=>navigator.clipboard.writeText([gNomes.campaignName,gNomes.adSetName,...gNomes.adNames].join("\n")).catch(()=>{})} className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-white px-2 py-1 text-[10px] font-medium text-emerald-600 hover:bg-emerald-50 transition-all"><Copy className="h-3 w-3"/>Tudo</button>
+            </div>
+            <CopyRow label="Campanha" value={gNomes.campaignName}/>
+            <CopyRow label="Conjunto de Anúncios" value={gNomes.adSetName}/>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Anúncios ({gNomes.adNames.length})</span>
+              <div className="flex flex-col gap-1 max-h-40 overflow-y-auto pr-0.5">
+                {gNomes.adNames.map((n,i)=><div key={i} className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-1.5">
+                  <span className="text-[10px] font-semibold text-slate-400 w-5 shrink-0">{String(i+1).padStart(2,"0")}</span>
+                  <span className="flex-1 font-mono text-[10px] text-slate-600 truncate">{n}</span>
+                  <CopyBtn value={n}/>
+                </div>)}
+              </div>
+            </div>
+          </div>
+          {/* UTM section */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-2"><Link2 className="h-3.5 w-3.5 text-sky-500"/><span className="text-xs font-semibold text-sky-600">Parâmetros UTM</span></div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[{k:"utm_source",v:gcfg.platform},{k:"utm_medium",v:getUtmMedium(gcfg.platform,gcfg.canal)},{k:"utm_campaign",v:"{{campaign.name}}"},{k:"utm_content",v:"{{ad.name}}"},{k:"utm_term",v:gcfg.publicoSlug}].map(p=><div key={p.k} className="rounded-lg border border-slate-100 bg-slate-50 p-2">
+                <p className="text-[9px] text-slate-400 mb-0.5">{p.k}</p>
+                <p className="font-mono text-[10px] text-slate-700 break-all">{p.v}</p>
+              </div>)}
+            </div>
+            <CopyRow label="Colar no campo URL Parameters do Meta Ads" value={`utm_source=${gcfg.platform}&utm_medium=${getUtmMedium(gcfg.platform,gcfg.canal)}&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term=${gcfg.publicoSlug}`}/>
+            {/* Tabela de URLs */}
+            <div className="flex items-center gap-2 mt-1"><LayoutList className="h-3.5 w-3.5 text-slate-400"/><span className="text-[10px] font-semibold text-slate-500">URLs por anúncio ({gNomes.adNames.length})</span></div>
+            <div className="flex flex-col gap-1 max-h-44 overflow-y-auto pr-0.5">
+              {gNomes.adNames.map((name,i)=>{
+                const cpArr=name.split("_conteudo_");
+                const contentPart=cpArr[1]?`conteudo_${cpArr[1]}`:name;
+                const lpUrl=lp?`https://${lp.url}`:"https://acelerai.com.br/lp";
+                const fullUrl=`${lpUrl}?utm_source=${gcfg.platform}&utm_medium=${getUtmMedium(gcfg.platform,gcfg.canal)}&utm_campaign=${gNomes.campaignName}&utm_content=${contentPart}&utm_term=${gcfg.publicoSlug}`;
+                return<div key={i} className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-2">
+                  <span className="text-[9px] font-semibold text-slate-400 w-4 shrink-0">{String(i+1).padStart(2,"0")}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono text-[10px] font-semibold text-indigo-600">{contentPart}</p>
+                    <p className="font-mono text-[9px] text-slate-400 truncate">{fullUrl}</p>
+                  </div>
+                  <CopyBtn value={fullUrl}/>
                 </div>;
               })}
             </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 flex items-start gap-2"><AlertCircle className="h-3 w-3 text-amber-500 shrink-0 mt-0.5"/><p className="text-[10px] text-amber-700 leading-relaxed">No Meta Ads, cole o conteúdo de <strong>URL Parameters</strong>. As variáveis <span className="font-mono">{"{{campaign.name}}"}</span> e <span className="font-mono">{"{{ad.name}}"}</span> são preenchidas automaticamente.</p></div>
           </div>
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 flex items-start gap-2"><AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5"/><p className="text-xs text-amber-600 leading-relaxed">Cole os parâmetros no campo <span className="font-semibold">URL Parameters</span> do Meta Ads. As variáveis <span className="font-mono">{"{{campaign.name}}"}</span> e <span className="font-mono">{"{{ad.name}}"}</span> são preenchidas automaticamente pela plataforma.</p></div>
-        </>:<div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-200 p-10 text-center"><Link2 className="h-8 w-8 text-slate-200"/><p className="text-sm text-slate-400">Gere a nomenclatura primeiro para criar os UTMs.</p></div>}
+        </>}
+        {!gNomes&&!gCanGenerate&&c.productSlug&&<div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-200 p-8 text-center"><Sparkles className="h-7 w-7 text-slate-200"/><div><p className="text-sm font-semibold text-slate-500">Selecione o público e clique em Gerar</p><p className="text-xs text-slate-400 mt-1">As nomenclaturas e UTMs aparecem aqui.</p></div></div>}
       </div>}
       {/* CHECKLIST */}
       {tab==="checklist"&&<div className="flex flex-col gap-4">
@@ -615,15 +634,14 @@ function DetailPanel({c,onClose,onStageChange,onDeleteRequest,onArchiveRequest,o
 }
 
 // ─── NEW / EDIT LP MODAL ──────────────────────────────────────────────────────
-interface LPFormData { name:string; url:string; status:LPStatus; description:string; }
+interface LPFormData { name:string; url:string; status:LPStatus; description:string; productSlug:string; lpIdentifier:string; }
 
 function LPModal({initial,onClose,onSave,title}:{initial?:Partial<LPFormData>;onClose:()=>void;onSave:(d:LPFormData)=>void;title:string}){
   const[step,setStep]=useState(0);
-  const[d,setD]=useState<LPFormData>({name:initial?.name||"",url:initial?.url||"",status:initial?.status||"rascunho",description:initial?.description||""});
+  const[d,setD]=useState<LPFormData>({name:initial?.name||"",url:initial?.url||"",status:initial?.status||"rascunho",description:initial?.description||"",productSlug:initial?.productSlug||"",lpIdentifier:initial?.lpIdentifier||""});
   const u=(k:keyof LPFormData)=>(v:string)=>setD(p=>({...p,[k]:v}));
-  const exampleCampaign="ACELERAI_CAPTACAO-DE-LEADS_BLACK-FRIDAY_Q4-2026";
-  const exampleUrl=d.url?`https://${d.url}?utm_source=meta&utm_medium=cpc&utm_campaign=${exampleCampaign.toLowerCase()}&utm_content=${exampleCampaign.toLowerCase()}_cold-lookalike_video-30s`:"";
-  const canNext=d.name&&d.url;
+  const lpSlug=d.productSlug&&d.lpIdentifier?`lp_${d.productSlug}_${toSlug(d.lpIdentifier)}`:"";
+  const canNext=!!(d.name&&d.url&&d.productSlug&&d.lpIdentifier);
   const ST_OPTS:[LPStatus,string,string][]=[
     ["rascunho","Rascunho","Em construção ou sem tráfego ainda."],
     ["em-teste","Em Teste","Teste A/B ou validação em andamento."],
@@ -655,6 +673,22 @@ function LPModal({initial,onClose,onSave,title}:{initial?:Partial<LPFormData>;on
       <div className="flex-1 overflow-y-auto p-6">
         {step===0&&(
           <div className="flex flex-col gap-5">
+            {/* Nomenclatura section */}
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 flex flex-col gap-3">
+              <div className="flex items-center gap-2"><Hash className="h-4 w-4 text-indigo-500"/><span className="text-xs font-semibold text-indigo-700">Nomenclatura da LP</span></div>
+              <div className="grid grid-cols-2 gap-3">
+                <Sel label="Produto *" opts={PRODUCTS_LIST.map(x=>x.label)} value={PRODUCTS_LIST.find(x=>x.slug===d.productSlug)?.label||""} onChange={v=>{const f=PRODUCTS_LIST.find(x=>x.label===v);if(f)u("productSlug")(f.slug);}}/>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Identificador *</label>
+                  <input value={d.lpIdentifier} onChange={e=>u("lpIdentifier")(e.target.value.toLowerCase().replace(/\s+/g,"_").replace(/[^\w-]/g,""))} placeholder="ex: main, v2, lancamento" className="h-9 rounded-xl border border-indigo-200 bg-white px-3 font-mono text-sm text-slate-700 outline-none focus:border-indigo-400 transition-all placeholder:text-slate-300 placeholder:font-sans"/>
+                </div>
+              </div>
+              {lpSlug?<div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2">
+                <span className="text-[10px] text-indigo-400">Slug gerado:</span>
+                <span className="flex-1 font-mono text-xs text-indigo-700">{lpSlug}</span>
+                <CopyBtn value={lpSlug}/>
+              </div>:<p className="text-[10px] text-indigo-400">Preencha Produto + Identificador para gerar o slug.</p>}
+            </div>
             {/* Name */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Nome da LP <span className="text-red-400">*</span></label>
@@ -777,6 +811,7 @@ function LandingPagesView({lps,campaigns,onAddLP,onEditLP}:{lps:LandingPage[];ca
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${LP_STATUS[lp.status].bg}`}><Globe className={`h-5 w-5 ${LP_STATUS[lp.status].text}`}/></div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap"><h3 className="text-sm font-bold text-slate-900">{lp.name}</h3><LPStatusPill status={lp.status}/></div>
+                  {lp.slug&&<div className="flex items-center gap-1.5 mt-0.5"><Hash className="h-3 w-3 text-indigo-400 shrink-0"/><span className="font-mono text-[11px] text-indigo-500">{lp.slug}</span></div>}
                   <p className="font-mono text-xs text-slate-400 mt-0.5">{lp.url}</p>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">{lp.description}</p>
                 </div>
@@ -1058,18 +1093,18 @@ export function AceleraiPlatform(){
                 <div className="flex flex-col gap-2.5">{cols.map(c=><CampaignCard key={c.id} c={c} onClick={()=>setSelected(c)} lp={lps.find(l=>l.id===c.landingPageId)}/>)}{cols.length===0&&<div className="flex h-20 items-center justify-center rounded-2xl border border-dashed border-slate-200 text-xs text-slate-300">Sem campanhas</div>}</div>
               </div>;})}
             </div>}
-            {selected&&<DetailPanel c={selected} lps={lps} onClose={()=>setSelected(null)} onStageChange={(id,s)=>updCamp(id,{stage:s})} onDeleteRequest={()=>setShowDel(selected)} onArchiveRequest={()=>setShowArc(selected)} onBriefingEdit={()=>setShowEditB(selected)} onConnectLP={()=>setShowConnLP(selected)}/>}
+            {selected&&<DetailPanel c={selected} lps={lps} onClose={()=>setSelected(null)} onStageChange={(id,s)=>updCamp(id,{stage:s})} onDeleteRequest={()=>setShowDel(selected)} onArchiveRequest={()=>setShowArc(selected)} onBriefingEdit={()=>setShowEditB(selected)} onConnectLP={()=>setShowConnLP(selected)} onSaveSetup={(canal,platform,publicoSlug,formato,quantidade,campaignName,adSetName,adName,adNames)=>updCamp(selected.id,{canal,platform,publicoSlug,formato,quantidade,campaignName,adSetName,adName,adNames})}/>}
           </>}
         </div>
       </div>
       {/* MODALS */}
-      {showNew&&<NewCampaignModal lps={lps} onClose={()=>setShowNew(false)} onSave={c=>{setCampaigns(p=>[c,...p]);if(c.landingPageId)setLps(ls=>ls.map(l=>l.id===c.landingPageId?{...l,connectedCampaigns:[...l.connectedCampaigns,c.id]}:l));}}/>}
+      {showNew&&<NewCampaignModal onClose={()=>setShowNew(false)} onSave={c=>{setCampaigns(p=>[c,...p]);setSelected(c);}}/>}
       {showEditB&&<EditBriefingModal campaign={showEditB} onClose={()=>setShowEditB(null)} onSave={b=>updCamp(showEditB.id,{briefingData:b,briefingFilled:!!(b.objetivo&&b.publico)})}/>}
       {showConnLP&&<ConnectLPModal campaign={showConnLP} lps={lps} onClose={()=>setShowConnLP(null)} onSave={lpId=>connectLP(showConnLP.id,lpId)}/>}
       {showDel&&<ConfirmModal title="Excluir campanha" message={`Excluir "${showDel.title}"? Esta ação não pode ser desfeita.`} danger confirmLabel="Excluir" onClose={()=>setShowDel(null)} onConfirm={()=>{setCampaigns(p=>p.filter(c=>c.id!==showDel.id));if(selected?.id===showDel.id)setSelected(null);}}/>}
       {showArc&&<ConfirmModal title="Arquivar campanha" message={`Arquivar "${showArc.title}"? Ela sairá do Kanban mas ficará no histórico.`} confirmLabel="Arquivar" onClose={()=>setShowArc(null)} onConfirm={()=>updCamp(showArc.id,{stage:"encerrado"})}/>}
-      {showNewLP&&<LPModal title="Nova Landing Page" onClose={()=>setShowNewLP(false)} onSave={fd=>{const newLP:LandingPage={id:`lp${Date.now()}`,name:fd.name,url:fd.url,status:fd.status,description:fd.description,connectedCampaigns:[],visits:0,conversions:0,convRate:0,lastUpdated:"Agora"};setLps(p=>[newLP,...p]);}}/>}
-      {showEditLP&&<LPModal title="Editar Landing Page" initial={{name:showEditLP.name,url:showEditLP.url,status:showEditLP.status,description:showEditLP.description}} onClose={()=>setShowEditLP(null)} onSave={fd=>{setLps(p=>p.map(l=>l.id===showEditLP.id?{...l,...fd}:l));}}/>}
+      {showNewLP&&<LPModal title="Nova Landing Page" onClose={()=>setShowNewLP(false)} onSave={fd=>{const slug=fd.productSlug&&fd.lpIdentifier?`lp_${fd.productSlug}_${toSlug(fd.lpIdentifier)}`:"";const newLP:LandingPage={id:`lp${Date.now()}`,name:fd.name,url:fd.url,status:fd.status,slug,productSlug:fd.productSlug,lpIdentifier:fd.lpIdentifier,description:fd.description,connectedCampaigns:[],visits:0,conversions:0,convRate:0,lastUpdated:"Agora"};setLps(p=>[newLP,...p]);}}/>}
+      {showEditLP&&<LPModal title="Editar Landing Page" initial={{name:showEditLP.name,url:showEditLP.url,status:showEditLP.status,description:showEditLP.description,productSlug:showEditLP.productSlug,lpIdentifier:showEditLP.lpIdentifier}} onClose={()=>setShowEditLP(null)} onSave={fd=>{const slug=fd.productSlug&&fd.lpIdentifier?`lp_${fd.productSlug}_${toSlug(fd.lpIdentifier)}`:"";setLps(p=>p.map(l=>l.id===showEditLP.id?{...l,...fd,slug}:l));}}/>}
     </div>
   );
 }
