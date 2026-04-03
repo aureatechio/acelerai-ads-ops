@@ -450,19 +450,71 @@ function FilterPanel({f,onChange,onClose,onClear}:{f:FilterState;onChange:(k:key
 function CampaignCard({c,onClick,lp}:{c:Campaign;onClick:()=>void;lp?:LandingPage}){
   const done=Object.values(c.checklistState).filter(Boolean).length;
   const pct=Math.round((done/CHECKLIST_ITEMS.length)*100);
-  return<div onClick={onClick} className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 hover:border-indigo-200 hover:shadow-md hover:shadow-slate-100 transition-all flex flex-col gap-3">
-    <div className="flex items-start justify-between gap-2">
-      <div className="flex-1 min-w-0"><p className="text-sm font-semibold text-slate-800 leading-tight line-clamp-2">{c.title}</p><p className="mt-0.5 text-xs text-slate-400">{c.product}</p></div>
-      <div className="flex items-center gap-1 shrink-0"><PIcon p={c.priority}/><button onClick={e=>e.stopPropagation()} className="rounded p-1 text-slate-300 opacity-0 group-hover:opacity-100 hover:text-slate-500 transition-all"><MoreHorizontal className="h-3.5 w-3.5"/></button></div>
+  const priBorder=c.priority==="high"?"border-l-red-400":c.priority==="medium"?"border-l-amber-400":"border-l-slate-200";
+  return<div onClick={onClick} className={`group cursor-pointer rounded-2xl border border-slate-200 border-l-4 ${priBorder} bg-white hover:border-indigo-200 hover:shadow-lg hover:shadow-slate-100/80 transition-all flex flex-col`}>
+    {/* Top section */}
+    <div className="p-5 flex flex-col gap-3">
+      {/* Title row */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-bold text-slate-800 leading-snug">{c.title}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-slate-400">{c.product}</span>
+            <span className="text-slate-200">·</span>
+            <span className="text-xs text-slate-400">{c.period}</span>
+            <span className="text-slate-200">·</span>
+            <span className="text-xs font-medium text-slate-500">{c.budget}</span>
+          </div>
+        </div>
+        <button onClick={e=>e.stopPropagation()} className="rounded-lg p-1.5 text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-slate-100 hover:text-slate-500 transition-all shrink-0"><MoreHorizontal className="h-4 w-4"/></button>
+      </div>
+      {/* Tags */}
+      <div className="flex flex-wrap gap-1.5">
+        <span className="rounded-full bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-600">{c.objective}</span>
+        {c.tags.slice(0,3).map(t=><span key={t} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] text-slate-500">#{t}</span>)}
+      </div>
+      {/* Campaign name */}
+      {c.campaignName
+        ?<div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2"><p className="font-mono text-[11px] text-slate-500 truncate">{c.campaignName}</p></div>
+        :<div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+          <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0"/>
+          <p className="text-[11px] font-medium text-amber-600">Nomenclatura não gerada — abra o Gerador</p>
+        </div>
+      }
     </div>
-    <div className="flex flex-wrap gap-1.5">
-      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600">{c.objective}</span>
-      {c.tags.slice(0,2).map(t=><span key={t} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">#{t}</span>)}
+    {/* Divider */}
+    <div className="border-t border-slate-100 mx-5"/>
+    {/* Bottom section */}
+    <div className="px-5 py-3.5 flex flex-col gap-3">
+      {/* LP row */}
+      {lp
+        ?<div className="flex items-center gap-2">
+          <Globe className="h-3.5 w-3.5 text-slate-400 shrink-0"/>
+          <span className="text-xs text-slate-600 flex-1 truncate">{lp.name}</span>
+          <LPStatusPill status={lp.status}/>
+        </div>
+        :<div className="flex items-center gap-2">
+          <Globe className="h-3.5 w-3.5 text-slate-300 shrink-0"/>
+          <span className="text-xs text-slate-300 italic">Sem LP conectada</span>
+        </div>
+      }
+      {/* Checklist bar */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+          <div className={`h-full rounded-full transition-all duration-500 ${pct===100?"bg-emerald-500":pct>50?"bg-indigo-500":"bg-slate-300"}`} style={{width:`${pct}%`}}/>
+        </div>
+        <span className={`text-[11px] font-semibold shrink-0 ${pct===100?"text-emerald-600":"text-slate-400"}`}>{done}/{CHECKLIST_ITEMS.length}</span>
+      </div>
+      {/* Footer metadata */}
+      <div className="flex items-center justify-between">
+        <div className="flex -space-x-2">{c.responsible.map(m=><Av key={m.id} m={m}/>)}</div>
+        <div className="flex items-center gap-3 text-slate-400">
+          <span className="flex items-center gap-1 text-[11px]"><MessageSquare className="h-3 w-3"/>{c.comments}</span>
+          <span className="flex items-center gap-1 text-[11px]"><Paperclip className="h-3 w-3"/>{c.attachments}</span>
+          <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500"><Clock className="h-3 w-3 text-slate-400"/>{c.dueDate}</span>
+        </div>
+      </div>
     </div>
-    {c.campaignName?<div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5"><p className="font-mono text-[10px] text-slate-400 truncate">{c.campaignName}</p></div>:<div className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5"><AlertCircle className="h-3 w-3 text-amber-500 shrink-0"/><p className="text-[10px] text-amber-600">Nomenclatura não gerada</p></div>}
-    {lp?<div className="flex items-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5"><Globe className="h-3 w-3 text-slate-400 shrink-0"/><p className="text-[10px] text-slate-500 truncate">{lp.name}</p><LPStatusPill status={lp.status}/></div>:<div className="flex items-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5"><Globe className="h-3 w-3 text-slate-300 shrink-0"/><p className="text-[10px] text-slate-300 italic">Sem LP conectada</p></div>}
-    <div className="flex flex-col gap-1"><div className="flex items-center justify-between"><span className="text-[10px] text-slate-400">Checklist</span><span className="text-[10px] font-medium text-slate-500">{done}/{CHECKLIST_ITEMS.length}</span></div><div className="h-1 w-full overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full transition-all ${pct===100?"bg-emerald-500":pct>50?"bg-indigo-500":"bg-slate-300"}`} style={{width:`${pct}%`}}/></div></div>
-    <div className="flex items-center justify-between"><div className="flex -space-x-1.5">{c.responsible.map(m=><Av key={m.id} m={m}/>)}</div><div className="flex items-center gap-2.5 text-slate-400"><span className="flex items-center gap-1 text-[11px]"><MessageSquare className="h-3 w-3"/>{c.comments}</span><span className="flex items-center gap-1 text-[11px]"><Paperclip className="h-3 w-3"/>{c.attachments}</span><span className="flex items-center gap-1 text-[11px]"><Clock className="h-3 w-3"/>{c.dueDate}</span></div></div>
   </div>;
 }
 
@@ -1043,9 +1095,9 @@ export function AceleraiPlatform(){
           {sideView==="landingpages"&&<LandingPagesView lps={lps} campaigns={campaigns} onAddLP={()=>setShowNewLP(true)} onEditLP={lp=>setShowEditLP(lp)}/>}
           {sideView==="kanban"&&<>
             {viewMode==="list"?<ListView campaigns={filtered} lps={lps} onSelect={c=>{setSelected(c);setViewMode("kanban");}}/>:
-            <div className="flex flex-1 min-w-0 overflow-x-auto p-5 gap-4 bg-slate-50" style={{scrollbarWidth:"none",msOverflowStyle:"none"}}>
-              {STAGES.map(stage=>{const cols=filtered.filter(c=>c.stage===stage.id);return<div key={stage.id} className="flex shrink-0 w-[310px] flex-col gap-3">
-                <div className="flex items-center justify-between px-1"><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${stage.dot}`}/><span className="text-sm font-semibold text-slate-600">{stage.label}</span><span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-slate-200 px-1.5 text-[11px] font-semibold text-slate-500">{cols.length}</span></div><button className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-all"><Plus className="h-3.5 w-3.5"/></button></div>
+            <div className="flex flex-1 min-w-0 overflow-x-auto p-5 gap-5 bg-slate-50" style={{scrollbarWidth:"none",msOverflowStyle:"none"}}>
+              {STAGES.map(stage=>{const cols=filtered.filter(c=>c.stage===stage.id);return<div key={stage.id} className="flex shrink-0 w-[360px] flex-col gap-3">
+                <div className="flex items-center justify-between px-1 py-1"><div className="flex items-center gap-2.5"><span className={`h-2.5 w-2.5 rounded-full ${stage.dot}`}/><span className="text-sm font-bold text-slate-600">{stage.label}</span><span className="flex h-5 min-w-[22px] items-center justify-center rounded-full bg-white border border-slate-200 px-1.5 text-[11px] font-bold text-slate-500 shadow-sm">{cols.length}</span></div><button className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm border border-transparent hover:border-slate-200 transition-all"><Plus className="h-3.5 w-3.5"/></button></div>
                 <div className="flex flex-col gap-2.5">{cols.map(c=><CampaignCard key={c.id} c={c} onClick={()=>setSelected(c)} lp={lps.find(l=>l.id===c.landingPageId)}/>)}{cols.length===0&&<div className="flex h-20 items-center justify-center rounded-2xl border border-dashed border-slate-200 text-xs text-slate-300">Sem campanhas</div>}</div>
               </div>;})}
             </div>}
